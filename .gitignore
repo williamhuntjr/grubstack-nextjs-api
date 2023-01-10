@@ -1,0 +1,5 @@
+venv/*
+grubstack/grubstack.ini
+*.log
+*.pyc
+*.sock

@@ -1,0 +1,11 @@
+flask
+flask-mail
+flask-limiter
+flask-cors
+flask-caching
+python-dotenv
+python-jose
+six
+requests
+psycopg2
+uwsgi
