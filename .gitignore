@@ -1,5 +1,5 @@
 venv/*
-grubstack/grubstack.ini
+grubstack.ini
 *.log
 *.pyc
 *.sock

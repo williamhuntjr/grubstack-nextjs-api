@@ -11,7 +11,7 @@ from logging.handlers import RotatingFileHandler
 from .database import GrubDatabase
 
 config = configparser.RawConfigParser()
-configfile = os.path.dirname(os.path.realpath(__file__)) + '/grubstack/grubstack.ini'
+configfile = os.path.dirname(os.path.realpath(__file__)) + '/grubstack.ini'
 
 if len(sys.argv) > 1:
   parser = argparse.ArgumentParser()

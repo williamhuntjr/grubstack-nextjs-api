@@ -15,7 +15,6 @@ def handle_auth_error(ex):
 
 @app.before_request
 def before_request() -> None:
-  '''Runs before every request in Flask'''
   g.start = datetime.now().timestamp()
 
 @app.after_request
@@ -32,11 +31,6 @@ try:
   from uwsgidecorators import postfork
   @postfork
   def reconnectafterfork():
-    '''
-    This function handles uwsgi's postfork signal and forces a reconnection to the database. This is required
-    when uwsgi is run without lazy-apps because uwsgi forks after loading the app, and since psycopg2 is not
-    green-thread safe database queries will fail unless each thread establishes its own connection after the fork.
-    '''
     gsdb.reconnect()
 except ImportError:
   pass

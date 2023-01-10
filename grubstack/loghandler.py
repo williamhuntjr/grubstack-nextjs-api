@@ -8,8 +8,6 @@ class GrubStackLogHandler(logging.Handler):
     logging.Handler.__init__(self)
 
   def emit(self, record):
-    """Write to the database"""
-    # asctime/created are intentionally swapped
     qry = """INSERT INTO gs_log(log_created, log_asctime, log_name, log_loglevel, log_loglevelname,
                                          log_message, log_module, log_funcname, log_lineno, log_exception,
                                          log_process, log_thread, log_threadname) 

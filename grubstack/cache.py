@@ -7,7 +7,6 @@ cacheconfig = json.loads(config.get('caching', 'config', fallback='{"CACHE_TYPE"
 cache = Cache(app, config=cacheconfig)
 
 def cachekey(*args, **kwargs) -> str:
-  """Generates a string to use as a cache key by concatenating all supplied string inputs"""
   return ''.join(args)
 
 def clearcaches(caches: list) -> None:

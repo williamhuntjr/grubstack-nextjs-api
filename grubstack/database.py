@@ -52,7 +52,6 @@ class GrubDatabase(object):
       return None
 
   def test_connection(self):
-    """Checks if the database connection is still open"""
     try:
       if not self.connection or self.connection.closed != 0:
         self.reconnect()
@@ -61,7 +60,6 @@ class GrubDatabase(object):
       pass
 
   def fetchone(self, query, params=None):
-    """Execute query against database using params dict()"""
     try:
       cur = self.get_cursor()
       if cur is not None:
@@ -83,7 +81,6 @@ class GrubDatabase(object):
         del cur
 
   def fetchall(self, query, params=None):
-    """Execute query against database using params dict()"""
     try:
       cur = self.get_cursor()
       if cur is not None:
@@ -103,7 +100,6 @@ class GrubDatabase(object):
         del cur
 
   def execute(self, query, params=None):
-    """Execute query against database using params dict()"""
     try:
       cur = self.get_cursor()
       if cur is not None:
