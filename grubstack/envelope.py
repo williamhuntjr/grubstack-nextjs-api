@@ -11,10 +11,14 @@ class GStatusCode(Enum):
     return self.value
 
 class GStatus(dict):
-  def __init__(self, code=GStatusCode.SUCCESS, message=str()):
+  def __init__(self, code=GStatusCode.SUCCESS, message=str(), totalrowcount=0 or None, totalpages=0 or None):
     dict.__init__(self)
     self['code'] = code
     self['message'] = message
+    if totalrowcount != None: 
+      self['totalrowcount'] = totalrowcount
+    if totalpages != None: 
+      self['totalpages'] = totalpages
 
 class GRequest(dict):
   def __init__(self, data=None, options=dict()):
@@ -41,10 +45,12 @@ class GRequest(dict):
     )
 
 class GResponse(dict):
-  def __init__(self, data=str(), message=str(), status=GStatusCode.SUCCESS):
+  def __init__(self, data=str(), message=str(), status=GStatusCode.SUCCESS, totalrowcount=None, totalpages=None, hasMore=None):
     dict.__init__(self)
     self['data'] = data
-    self['status'] = GStatus(status, message)
+    if hasMore is not None: self['hasMore'] = hasMore
+    if totalrowcount is not None and totalpages is not None: self['status'] = GStatus(status, message, totalrowcount, totalpages)
+    else: self['status'] = GStatus(status, message)
 
   def __str__(self):
     return self.tojson()
@@ -64,4 +70,6 @@ class GResponse(dict):
       pdict['data'],
       pdict['status']['message'],
       GStatusCode[pdict['status']['code'].upper()],
+      pdict['status']['totalrowcount'],
+      pdict['status']['totalpages']
     )

@@ -3,3 +3,4 @@ grubstack.ini
 *.log
 *.pyc
 *.sock
+*.log*

@@ -3,7 +3,6 @@ __version__ = '0.1.0'
 import logging, configparser, os, sys, argparse
 from flask import Flask
 from flask_mail import Mail
-from flask_wtf.csrf import CSRFProtect
 from flask_cors import CORS
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
