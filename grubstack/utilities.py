@@ -20,8 +20,6 @@ def gs_make_response(*args, **kwargs):
   r.headers['Content-Type'] = 'application/json'
   return r
 
-import subprocess, json
-
 def init_apps(tenant_id: str):
   row = gsdb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
   if row:

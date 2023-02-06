@@ -9,3 +9,4 @@ six
 requests
 psycopg2
 uwsgi
+boto3
