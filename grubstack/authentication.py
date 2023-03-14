@@ -4,11 +4,11 @@ from functools import wraps
 from jose import jwt
 
 from flask import request, _request_ctx_stack, session, Blueprint
-
-from . import app, config, logger, gsdb
+from .utilities import generate_hash
+from . import app, config, logger, gsdb, coredb
 
 AUTH0_DOMAIN = app.config['AUTH0_DOMAIN']
-API_AUDIENCE = app.config['API_AUDIENCE']
+AUTH0_AUDIENCE = app.config['AUTH0_AUDIENCE']
 
 ALGORITHMS = ["RS256"]
 
@@ -68,7 +68,7 @@ def requires_auth(f):
                     token,
                     rsa_key,
                     algorithms=ALGORITHMS,
-                    audience=API_AUDIENCE,
+                    audience=AUTH0_AUDIENCE,
                     issuer="https://"+AUTH0_DOMAIN+"/"
                 )
             except jwt.ExpiredSignatureError:
@@ -114,38 +114,44 @@ def requires_scope(required_scope):
     return decorator
 
 def get_user_info():
-  token = get_token_auth_header()
-  resp = requests.get("https://"+AUTH0_DOMAIN+"/userinfo", headers={'Authorization': 'Bearer '+token})
-  json_data = resp.json() 
-  return json_data
+    token = get_token_auth_header()
+    resp = requests.get("https://"+AUTH0_DOMAIN+"/userinfo", headers={'Authorization': 'Bearer '+token})
+    json_data = resp.json() 
+    return json_data
 
 def get_user_id():
-  token = get_token_auth_header()
-  resp = requests.get("https://"+AUTH0_DOMAIN+"/userinfo", headers={'Authorization': 'Bearer '+token})
-  json_data = resp.json() 
-  return json_data['sub'] if 'sub' in json_data else None
+    token = get_token_auth_header()
+    resp = requests.get("https://"+AUTH0_DOMAIN+"/userinfo", headers={'Authorization': 'Bearer '+token})
+    json_data = resp.json() 
+    return json_data['sub'] if 'sub' in json_data else None
 
 def get_tenant_id():
-  token = get_token_auth_header()
-  resp = requests.get("https://"+AUTH0_DOMAIN+"/userinfo", headers={'Authorization': 'Bearer '+token})
-  json_data = resp.json()
-  if 'sub' in json_data:
-    row = gsdb.fetchone("SELECT tenant_id FROM gs_user_tenant WHERE user_id = %s AND is_owner = 't'", (json_data['sub'],))
-    if row:
-      return row['tenant_id']
-  return None
+    token = get_token_auth_header()
+    resp = requests.get("https://"+AUTH0_DOMAIN+"/userinfo", headers={'Authorization': 'Bearer '+token})
+    json_data = resp.json()
+    if 'sub' in json_data:
+        row = gsdb.fetchone("SELECT tenant_id FROM gs_user_tenant WHERE user_id = %s AND is_owner = 't'", (json_data['sub'],))
+        if row:
+            return row['tenant_id']
+        else:
+            slug = generate_hash()
+            qry = coredb.execute("INSERT INTO gs_tenant VALUES (DEFAULT, 'f', 't', %s)", (slug,))
+            row = coredb.fetchone("SELECT tenant_id FROM gs_tenant WHERE slug = %s", (slug,))
+            qry = gsdb.execute("INSERT INTO gs_user_tenant VALUES (%s, %s, 't')", (json_data['sub'], row['tenant_id'],))
+            return row['tenant_id']
+    return None
 
 def get_tenant_slug():
-  token = get_token_auth_header()
-  resp = requests.get("https://"+AUTH0_DOMAIN+"/userinfo", headers={'Authorization': 'Bearer '+token})
-  json_data = resp.json()
-  if 'sub' in json_data:
-    row = gsdb.fetchone("SELECT tenant_id FROM gs_user_tenant WHERE user_id = %s AND is_owner = 't'", (json_data['sub'],))
-    if row:
-      tenant_id = row['tenant_id']
-      slug = gsdb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
-      return slug[0]
-  return None
+    token = get_token_auth_header()
+    resp = requests.get("https://"+AUTH0_DOMAIN+"/userinfo", headers={'Authorization': 'Bearer '+token})
+    json_data = resp.json()
+    if 'sub' in json_data:
+        row = gsdb.fetchone("SELECT tenant_id FROM gs_user_tenant WHERE user_id = %s AND is_owner = 't'", (json_data['sub'],))
+        if row:
+            tenant_id = row['tenant_id']
+            slug = coredb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
+        return slug[0]
+    return None
 
 @gsauth.route('/auth/userinfo', methods=['GET'])
 @requires_auth
@@ -170,7 +176,7 @@ def get_userinfo():
           token,
           rsa_key,
           algorithms=ALGORITHMS,
-          audience=API_AUDIENCE,
+          audience=AUTH0_AUDIENCE,
           issuer="https://"+AUTH0_DOMAIN+"/"
       )
     except jwt.ExpiredSignatureError:

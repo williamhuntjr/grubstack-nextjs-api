@@ -1,7 +1,8 @@
+import boto3
 import logging, subprocess, json, random
 from flask import Response
 
-from grubstack import config, gsdb
+from grubstack import app, config, gsdb, coredb
 from grubstack.envelope import GResponse, GStatusCode
 
 logger = logging.getLogger('grubstack')
@@ -20,59 +21,139 @@ def gs_make_response(*args, **kwargs):
   r.headers['Content-Type'] = 'application/json'
   return r
 
-def init_apps(tenant_id: str):
-  row = gsdb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
+def create_dns(record: str, address: str):
+  client = boto3.client('route53', aws_access_key_id=config.get('aws','aws_access_key_id', fallback=''), aws_secret_access_key=config.get('aws', 'aws_secret_access_key', fallback=''))
+  create_dns = { 
+    "Changes": [ 
+      {
+        "Action": "UPSERT", 
+        "ResourceRecordSet":  {  
+          "Name": record, 
+          "Type": "A", 
+          "TTL": 3600, 
+          "ResourceRecords":  [ 
+            {
+              "Value": address
+            } 
+          ] 
+        }  
+      }  
+    ] 
+  }
+
+  response = client.change_resource_record_sets(
+    HostedZoneId=config.get('aws','hostedzone_id', fallback=''),
+    ChangeBatch=create_dns
+  )
+
+def install_api(tenant_id: str):
+  row = coredb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
   if row:
     slug = row[0]
-    data = {
-      "slug": slug,
-      "secret_id": generate_hash(16),
-      "tenant_id": tenant_id,
-      "db_server": config.get('database', 'server'),
+    app_config = {
+      "db_server": config.get('database', 'external_ip'),
       "db_name": config.get('database', 'core_db'),
       "db_port": config.get('database', 'port'),
       "db_user": config.get('database', 'user'),
       "db_password": config.get('database', 'password'),
-      "corp_db_server": config.get('corporate', 'server'),
-      "corp_db_name": config.get('corporate', 'database'),
-      "corp_db_port": config.get('corporate', 'port'),
-      "corp_db_user": config.get('corporate', 'user'),
-      "corp_db_password": config.get('corporate', 'password'),
+      "db_ssl": config.get('database', 'ssl'),
+      "corporate_db": config.get('database', 'database'),
       "mail_server": config.get('mail', 'server'),
       "mail_port": config.get('mail', 'port'),
       "mail_ssl": config.get('mail', 'ssl'),
       "mail_user": config.get('mail', 'user'),
-      "mail_password": config.get('mail', 'password')
+      "mail_password": config.get('mail', 'password'),
+      "auth0_domain": app.config['AUTH0_DOMAIN'],
+      "auth0_audience": app.config['AUTH0_AUDIENCE'],
     }
-    file_path = '/tmp/grubstack-' + slug + '.json'
-    f = open(file_path, "w")
-    f.write(json.dumps(data))
-    f.close()
+    cmd = """helm install grubstack-api-%s --set customer.host=api-%s.grubstack.app \\
+                                           --set customer.tenantId=%s \\
+                                           --set database.host=%s \\
+                                           --set database.name=%s \\
+                                           --set database.port=%s \\
+                                           --set database.ssl=%s \\
+                                           --set database.user=%s \\
+                                           --set database.password=%s \\
+                                           --set database.corporate=%s \\
+                                           --set auth0.domain=%s \\
+                                           --set auth0.audience=%s \\
+                                           /home/grubstack/grubstack-helm/grubstack-api""" % (slug, slug, tenant_id, app_config['db_server'], app_config['db_name'], app_config['db_port'], app_config['db_ssl'], app_config['db_user'], app_config['db_password'], app_config['corporate_db'], app_config['auth0_domain'], app_config['auth0_audience'])
+    result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    api_url = 'https://api-' + slug + '.grubstack.app'
+    row = gsdb.fetchone("SELECT * FROM gs_tenant_app WHERE tenant_id = %s AND product_id = '1' AND app_url = %s", (tenant_id, api_url,))
+    if row == None:
+      qry = gsdb.execute("INSERT INTO gs_tenant_app VALUES (DEFAULT, %s, %s, %s)", (tenant_id, 1, api_url,))
 
-    cur = gsdb.execute("INSERT INTO gs_tenant_app VALUES (DEFAULT, %s, '1', %s)", (tenant_id, 'https://api.grubstack.app/' + slug,))
+    proxy_servers = config.get('proxy','servers', fallback='107.161.173.97')
+    server_list = proxy_servers.split(";")
+    for proxy_server in server_list:
+      create_dns('api-' + slug + '.grubstack.app', proxy_server)
 
-    cmd = '/usr/bin/jinja -d /tmp/grubstack-' + slug + '.json ' + '/etc/grubstack/system.template.j2 > ' + '/etc/grubstack/system/' + slug + '.conf'
-    create_api_config = subprocess.call(cmd, shell=True)
+def uninstall_api(tenant_id: str):
+  row = coredb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
+  if row:
+    slug = row[0]
+    try:
+      cmd = "helm uninstall grubstack-api-%s" % (slug)
+      result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    except:
+      pass
 
-    cmd = '/usr/bin/jinja -d /tmp/grubstack-' + slug + '.json ' + '/etc/grubstack/nginx.template.j2 > ' + '/etc/grubstack/nginx/' + slug + '.conf'
-    create_nginx_config = subprocess.call(cmd, shell=True)
+def install_core(tenant_id: str):
+  row = coredb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
+  if row:
+    slug = row[0]
+    app_config = {
+      "api_url": "https://api-" + slug + ".grubstack.app",
+      "corporate_url": "https://grubstack.app",
+      "site_url": "https://core-" + slug + ".grubstack.app",
+      "host": "core-" + slug + ".grubstack.app",
+      "auth0_domain": app.config['AUTH0_DOMAIN'],
+      "auth0_clientId": app.config['AUTH0_CLIENT_ID'],
+    }
 
-    cmd = 'sudo systemctl restart grubstack-core-api@' + slug
-    restart_app = subprocess.call(cmd, shell=True)
+    cmd = """helm install grubstack-core-%s --set customer.host=%s \\
+                                            --set customer.apiUrl=%s \\
+                                            --set customer.corporateUrl=%s \\
+                                            --set customer.siteUrl=%s \\
+                                            --set auth0.domain=%s \\
+                                            --set auth0.clientId=%s \\
+                                            /home/grubstack/grubstack-helm/grubstack-core""" % (slug, app_config['host'], app_config['api_url'], app_config['corporate_url'], app_config['site_url'], app_config['auth0_domain'], app_config['auth0_clientId'])
+    result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    core_url = 'https://core-' + slug + '.grubstack.app'
+    row = gsdb.fetchone("SELECT * FROM gs_tenant_app WHERE tenant_id = %s AND product_id = '2' AND app_url = %s", (tenant_id, core_url,))
+    if row == None:
+      qry = gsdb.execute("INSERT INTO gs_tenant_app VALUES (DEFAULT, %s, %s, %s)", (tenant_id, 2, core_url,))
 
-    cmd = 'sudo systemctl reload nginx'
-    reload_nginx = subprocess.call(cmd, shell=True)
+    proxy_servers = config.get('proxy','servers', fallback='107.161.173.97')
+    server_list = proxy_servers.split(";")
+    for proxy_server in server_list:
+      create_dns('core-' + slug + '.grubstack.app', proxy_server)
+
+def uninstall_core(tenant_id: str):
+  row = coredb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
+  if row:
+    slug = row[0]
+    try:
+      cmd = "helm uninstall grubstack-core-%s" % (slug)
+      result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    except:
+      pass
+
+def init_apps(tenant_id: str):
+  install_api(tenant_id)
+  install_core(tenant_id)
 
 def generate_hash(num: int = 12):
   string = []
-  chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
+  chars = 'abcdefghijklmnopqrstuvwxyz1234567890'
   for k in range(1, num+1):
     string.append(random.choice(chars))
   string = "".join(string)
   return string
 
 def get_slug(tenantId: str):
-  row = gsdb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenantId,))
+  row = coredb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenantId,))
   if row != None:
     return row[0]
   return None

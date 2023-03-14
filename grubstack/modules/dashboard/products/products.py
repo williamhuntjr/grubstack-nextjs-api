@@ -4,7 +4,7 @@ from flask import Blueprint, request
 from flask_cors import cross_origin
 
 from grubstack import app, config, gsdb
-from grubstack.utilities import gs_make_response, init_apps, generate_hash, get_slug
+from grubstack.utilities import gs_make_response, init_apps, generate_hash, get_slug, install_api, uninstall_api, install_core, uninstall_core
 from grubstack.authentication import AuthError, requires_auth, requires_scope, get_user_id, get_tenant_id, get_tenant_slug
 from grubstack.envelope import GStatusCode
 
@@ -13,7 +13,6 @@ logger = logging.getLogger('grubstack')
 
 @product.route('/product/apps', methods=['GET'])
 @requires_auth
-@requires_scope("read:products")
 def get_all():
   try:
     json_data = []
@@ -24,17 +23,19 @@ def get_all():
       apps = gsdb.fetchall("SELECT app_id, app_url, c.tenant_id, c.product_id, p.is_front_end_app, p.product_name, p.product_description FROM gs_tenant_app c INNER JOIN gs_product p on p.product_id = c.product_id WHERE c.tenant_id = %s", (tenant_id,))
       
       for app in apps:
+        slug = get_slug(app['tenant_id'])
         status = "stopped"
         if app['product_id'] == 1:
-          try:
-            slug = get_slug(app['tenant_id'])
-            if slug:
-              cmd = 'sudo systemctl is-active grubstack-core-api@' + slug
-              check_status = subprocess.check_output(cmd, shell=True)
-              status = check_status.decode('utf8', errors='strict').strip()
+          cmd = "helm status grubstack-api-" + slug + " | grep 'STATUS: ' | awk {'print $2'}"
 
-          except Exception:
-            pass
+        if app['product_id'] == 2:
+          cmd = "helm status grubstack-core-" + slug + " | grep 'STATUS: ' | awk {'print $2'}"
+
+        try:
+          check_status = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+          status = check_status[0].decode('utf8').strip()
+        except Exception:
+          pass
 
         json_data.append({
           "app_id":app['app_id'],
@@ -57,7 +58,6 @@ def get_all():
 
 @product.route('/product/app/restart', methods=['POST'])
 @requires_auth
-@requires_scope("edit:products")
 def restart_app():
   try:
     if request.json:
@@ -66,12 +66,18 @@ def restart_app():
       app_id = params['app_id']
       tenant_id = get_tenant_id()
       tenant_slug = get_slug(tenant_id)
+      
       if app_id:
         row = gsdb.fetchone("SELECT product_id FROM gs_tenant_app WHERE tenant_id = %s AND app_id = %s", (tenant_id, app_id,))
         if row and 'product_id' in row and row['product_id'] == 1:
-          cmd = 'sudo systemctl restart grubstack-core-api@' + tenant_slug
-          restart_app = subprocess.call(cmd, shell=True)
-          return gs_make_response(message='App restarted successfully')
+          uninstall_api(tenant_id)
+          install_api(tenant_id)
+
+        if row and 'product_id' in row and row['product_id'] == 2:
+          uninstall_core(tenant_id)
+          install_core(tenant_id)
+        
+        return gs_make_response(message='App restarted successfully')
 
       return gs_make_response(message='Unable to restart app',
                         status=GStatusCode.ERROR,
@@ -99,13 +105,9 @@ def init_all_apps():
                         status=GStatusCode.ERROR,
                         httpstatus=409)
     else:
-      # TODO: add check for existing slug
-      slug = generate_hash(12)
-      cur = gsdb.execute("INSERT INTO gs_tenant VALUES (DEFAULT, 'f', 't', %s)", (slug,))
-      row = gsdb.fetchone("SELECT tenant_id FROM gs_tenant WHERE slug = %s", (slug,))
-      if row:
-        cur = gsdb.execute("INSERT INTO gs_user_tenant VALUES (%s, %s, 't')", (user_id, row[0],))
-        init_apps(row[0])
+      tenant_id = get_tenant_id()
+      if tenant_id:
+        init_apps(tenant_id)
         return gs_make_response(message='GrubStack initialized.')
 
     return gs_make_response(message='Unable to init apps',

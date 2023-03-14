@@ -252,6 +252,7 @@ CREATE TABLE public.gs_variety_ingredient (
 
 ALTER TABLE public.gs_variety_ingredient OWNER TO grubstack;
 
+ALTER TABLE gs_tenant DISABLE ROW LEVEL SECURITY;
 
 ALTER TABLE gs_tenant ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gs_user ENABLE ROW LEVEL SECURITY;
@@ -279,6 +280,7 @@ ALTER TABLE gs_item_ingredient FORCE ROW LEVEL SECURITY;
 ALTER TABLE gs_variety FORCE ROW LEVEL SECURITY;
 ALTER TABLE gs_variety_ingredient FORCE ROW LEVEL SECURITY;
 
+DROP POLICY tenant_isolation_policy ON gs_tenant;
 CREATE POLICY tenant_isolation_policy ON gs_tenant USING (tenant_id = current_setting('app.tenant_id')::UUID);
 CREATE POLICY tenant_isolation_policy ON gs_user USING (tenant_id = current_setting('app.tenant_id')::UUID);
 CREATE POLICY tenant_isolation_policy ON gs_user_role USING (tenant_id = current_setting('app.tenant_id')::UUID);

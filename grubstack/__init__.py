@@ -57,12 +57,14 @@ app.config['MAIL_DEFAULT_SENDER'] = config.get('mail', 'from')
 app.config['MAIL_DEBUG']          = config.getboolean('mail', 'debug', fallback=False)
 
 # auth0
-app.config['AUTH0_DOMAIN'] = config.get('auth0', 'domain', fallback='dev-x2xvjtterdxi3zgj.us.auth0.com')
-app.config['API_AUDIENCE'] = config.get('auth0', 'audience', fallback='https://api.grubstack.app/v1')
+app.config['AUTH0_DOMAIN'] = 'dev-x2xvjtterdxi3zgj.us.auth0.com'
+app.config['AUTH0_AUDIENCE'] = 'https://api.grubstack.app/v1'
+app.config['AUTH0_CLIENT_ID'] = 'fzdrD4DJDsg992k2KCr3rngy9Ph6W5YG'
 
 # Initialize globals
 mail = Mail(app)
 gsdb = GrubDatabase(config)
+coredb = GrubDatabase(config, database='grubstack_core')
 cors = CORS(app, supports_credentials=True)
 
 # Logger
