@@ -105,7 +105,7 @@ def install_core(tenant_id: str):
     slug = row[0]
     app_config = {
       "api_url": "https://api-" + slug + ".grubstack.app",
-      "corporate_url": "https://grubstack.app",
+      "production_url": "https://grubstack.app",
       "site_url": "https://core-" + slug + ".grubstack.app",
       "host": "core-" + slug + ".grubstack.app",
       "auth0_domain": app.config['AUTH0_DOMAIN'],
@@ -114,11 +114,13 @@ def install_core(tenant_id: str):
 
     cmd = """helm install grubstack-core-%s --set customer.host=%s \\
                                             --set customer.apiUrl=%s \\
-                                            --set customer.corporateUrl=%s \\
+                                            --set customer.productionUrl=%s \\
+                                            --set customer.tenantId=%s \\
+                                            --set customer.slug=%s \\
                                             --set customer.siteUrl=%s \\
                                             --set auth0.domain=%s \\
                                             --set auth0.clientId=%s \\
-                                            /home/grubstack/grubstack-helm/grubstack-core""" % (slug, app_config['host'], app_config['api_url'], app_config['corporate_url'], app_config['site_url'], app_config['auth0_domain'], app_config['auth0_clientId'])
+                                            /home/grubstack/grubstack-helm/grubstack-core""" % (slug, app_config['host'], app_config['api_url'], app_config['production_url'], tenant_id, slug, app_config['site_url'], app_config['auth0_domain'], app_config['auth0_clientId'])
     result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     core_url = 'https://core-' + slug + '.grubstack.app'
     row = gsdb.fetchone("SELECT * FROM gs_tenant_app WHERE tenant_id = %s AND product_id = '2' AND app_url = %s", (tenant_id, core_url,))

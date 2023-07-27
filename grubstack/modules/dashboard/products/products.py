@@ -66,7 +66,6 @@ def restart_app():
       app_id = params['app_id']
       tenant_id = get_tenant_id()
       tenant_slug = get_slug(tenant_id)
-      
       if app_id:
         row = gsdb.fetchone("SELECT product_id FROM gs_tenant_app WHERE tenant_id = %s AND app_id = %s", (tenant_id, app_id,))
         if row and 'product_id' in row and row['product_id'] == 1:
