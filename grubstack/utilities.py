@@ -50,6 +50,7 @@ def install_api(tenant_id: str):
   row = coredb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
   if row:
     slug = row[0]
+    accessToken = "abcdefg"
     app_config = {
       "db_server": config.get('database', 'external_ip'),
       "db_name": config.get('database', 'core_db'),
@@ -68,6 +69,7 @@ def install_api(tenant_id: str):
     }
     cmd = """helm install grubstack-api-%s --set customer.host=api-%s.grubstack.app \\
                                            --set customer.tenantId=%s \\
+                                           --set customer.accessToken=%s \\
                                            --set database.host=%s \\
                                            --set database.name=%s \\
                                            --set database.port=%s \\
@@ -77,7 +79,7 @@ def install_api(tenant_id: str):
                                            --set database.corporate=%s \\
                                            --set auth0.domain=%s \\
                                            --set auth0.audience=%s \\
-                                           /home/grubstack/grubstack-helm/grubstack-api""" % (slug, slug, tenant_id, app_config['db_server'], app_config['db_name'], app_config['db_port'], app_config['db_ssl'], app_config['db_user'], app_config['db_password'], app_config['corporate_db'], app_config['auth0_domain'], app_config['auth0_audience'])
+                                           /home/grubstack/grubstack-helm/grubstack-api""" % (slug, slug, tenant_id, accessToken, app_config['db_server'], app_config['db_name'], app_config['db_port'], app_config['db_ssl'], app_config['db_user'], app_config['db_password'], app_config['corporate_db'], app_config['auth0_domain'], app_config['auth0_audience'])
     result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     api_url = 'https://api-' + slug + '.grubstack.app'
     row = gsdb.fetchone("SELECT * FROM gs_tenant_app WHERE tenant_id = %s AND product_id = '1' AND app_url = %s", (tenant_id, api_url,))
@@ -142,9 +144,57 @@ def uninstall_core(tenant_id: str):
     except:
       pass
 
+def install_web(tenant_id: str):
+  row = coredb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
+  if row:
+    slug = row[0]
+    app_config = {
+      "api_url": "https://api-" + slug + ".grubstack.app",
+      "production_url": "https://grubstack.app",
+      "site_url": "https://web-" + slug + ".grubstack.app",
+      "host": "web-" + slug + ".grubstack.app",
+      "auth0_domain": app.config['AUTH0_DOMAIN'],
+      "auth0_clientId": app.config['AUTH0_CLIENT_ID'],
+    }
+
+    accessToken = "abcdefg"
+
+    cmd = """helm install grubstack-web-%s --set customer.host=%s \\
+                                            --set customer.apiUrl=%s \\
+                                            --set customer.productionUrl=%s \\
+                                            --set customer.tenantId=%s \\
+                                            --set customer.slug=%s \\
+                                            --set customer.siteUrl=%s \\
+                                            --set customer.accessToken=%s \\
+                                            --set auth0.domain=%s \\
+                                            --set auth0.clientId=%s \\
+                                            /home/grubstack/grubstack-helm/grubstack-web""" % (slug, app_config['host'], app_config['api_url'], app_config['production_url'], tenant_id, slug, app_config['site_url'], accessToken, app_config['auth0_domain'], app_config['auth0_clientId'])
+
+    result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    web_url = 'https://web-' + slug + '.grubstack.app'
+    row = gsdb.fetchone("SELECT * FROM gs_tenant_app WHERE tenant_id = %s AND product_id = '3' AND app_url = %s", (tenant_id, web_url,))
+    if row == None:
+      qry = gsdb.execute("INSERT INTO gs_tenant_app VALUES (DEFAULT, %s, %s, %s)", (tenant_id, 3, web_url,))
+
+    proxy_servers = config.get('proxy','servers', fallback='107.161.173.97')
+    server_list = proxy_servers.split(";")
+    for proxy_server in server_list:
+      create_dns('web-' + slug + '.grubstack.app', proxy_server)
+
+def uninstall_web(tenant_id: str):
+  row = coredb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
+  if row:
+    slug = row[0]
+    try:
+      cmd = "helm uninstall grubstack-web-%s" % (slug)
+      result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    except:
+      pass
+
 def init_apps(tenant_id: str):
   install_api(tenant_id)
   install_core(tenant_id)
+  install_web(tenant_id)
 
 def generate_hash(num: int = 12):
   string = []

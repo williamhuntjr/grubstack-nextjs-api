@@ -4,7 +4,7 @@ from flask import Blueprint, request
 from flask_cors import cross_origin
 
 from grubstack import app, config, gsdb
-from grubstack.utilities import gs_make_response, init_apps, generate_hash, get_slug, install_api, uninstall_api, install_core, uninstall_core
+from grubstack.utilities import gs_make_response, init_apps, generate_hash, get_slug, install_api, uninstall_api, install_core, uninstall_core, install_web, uninstall_web
 from grubstack.authentication import AuthError, requires_auth, requires_scope, get_user_id, get_tenant_id, get_tenant_slug
 from grubstack.envelope import GStatusCode
 
@@ -30,6 +30,9 @@ def get_all():
 
         if app['product_id'] == 2:
           cmd = "helm status grubstack-core-" + slug + " | grep 'STATUS: ' | awk {'print $2'}"
+
+        if app['product_id'] == 3:
+          cmd = "helm status grubstack-web-" + slug + " | grep 'STATUS: ' | awk {'print $2'}"
 
         try:
           check_status = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
@@ -76,6 +79,10 @@ def restart_app():
           uninstall_core(tenant_id)
           install_core(tenant_id)
         
+        if row and 'product_id' in row and row['product_id'] == 3:
+          uninstall_web(tenant_id)
+          install_web(tenant_id)
+
         return gs_make_response(message='App restarted successfully')
 
       return gs_make_response(message='Unable to restart app',
