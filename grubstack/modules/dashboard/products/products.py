@@ -101,7 +101,6 @@ def restart_app():
 
 @product.route('/product/app/init', methods=['POST'])
 @requires_auth
-@requires_scope("edit:products")
 def init_all_apps():
   try:
     user_id = get_user_id()

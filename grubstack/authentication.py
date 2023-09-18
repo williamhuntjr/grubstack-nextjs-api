@@ -116,8 +116,10 @@ def get_tenant_id():
       return row['tenant_id']
     else:
       slug = generate_hash()
-      qry = coredb.execute("INSERT INTO gs_tenant VALUES (DEFAULT, 'f', 't', %s)", (slug,))
+      access_token = generate_hash()
+      qry = coredb.execute("INSERT INTO gs_tenant VALUES (DEFAULT, 'f', 't', %s, %s)", (slug, access_token,))
       row = coredb.fetchone("SELECT tenant_id FROM gs_tenant WHERE slug = %s", (slug,))
+      qry = gsdb.execute("INSERT INTO gs_tenant_features VALUES (%s, 1, 1, 'basic', 'disabled', 'f', 1)", (row['tenant_id'],))
       qry = gsdb.execute("INSERT INTO gs_user_tenant VALUES (%s, %s, 't')", (current_user['sub'], row['tenant_id'],))
       return row['tenant_id']
   return None
