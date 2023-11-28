@@ -97,4 +97,4 @@ if config.getboolean('logging', 'log_to_database', fallback=False):
 
 from . import grubstack
 from . import authentication
-from . import modules
+from . import application

@@ -1,12 +1,13 @@
-flask
-flask-mail
-flask-limiter
-flask-cors
-flask-caching
+Flask == 2.2.5
+Flask-Caching == 2.1.0
+Flask-Cors == 4.0.0
+Flask-Limiter == 3.5.0
+Flask-Mail == 0.9.1
+psycopg2 == 2.9.9
+PyPika == 0.48.9
+python-jose == 3.3.0
 python-dotenv
-python-jose
-six
-requests
-psycopg2
-uwsgi
-boto3
+uWSGI == 2.0.23
+Werkzeug == 2.3.3
+requests == 2.31.0
+boto3 == 1.26.64
