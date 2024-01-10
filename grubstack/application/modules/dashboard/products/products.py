@@ -23,7 +23,7 @@ def get_all():
     json_data = []
     user_id = get_user_id()
     tenant_id = product_service.get_tenant_id(user_id)
-
+    
     if tenant_id is not None:
       apps = product_service.get_all(tenant_id)
       
@@ -64,8 +64,7 @@ def restart_app():
   try:
     if request.json:
       data = json.loads(request.data)
-      params = data['params']
-      app_id = params['app_id']
+      app_id = data['app_id']
       tenant_id = get_tenant_id()
       tenant_slug = get_slug(tenant_id)
 

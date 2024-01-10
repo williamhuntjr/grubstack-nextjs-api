@@ -1,7 +1,6 @@
 import logging
 from functools import wraps
 from flask import request, Response, g
-from flask_jwt_extended import get_current_user, verify_jwt_in_request
 from . import config
 from .utilities import gs_make_response
 from .envelope import GStatusCode

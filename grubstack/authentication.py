@@ -4,7 +4,8 @@ from functools import wraps
 from jose import jwt
 
 from flask import request, _request_ctx_stack, session, Blueprint
-from .utilities import generate_hash
+from .utilities import generate_hash, gs_make_response
+
 from . import app, config, logger, gsdb, coredb
 
 AUTH0_DOMAIN = app.config['AUTH0_DOMAIN']
@@ -76,6 +77,7 @@ def requires_auth(f):
                           "description": "Unable to parse authentication token." }, 401)
 
       _request_ctx_stack.top.current_user = payload
+
       return f(*args, **kwargs)
     raise AuthError({ "code": "invalid_header",
                       "description": "Unable to find appropriate key" }, 401)
@@ -105,11 +107,11 @@ def get_user_info():
   return current_user
 
 def get_user_id():
-  current_user = _request_ctx_stack.top.current_user
+  current_user = get_user_info()
   return current_user['sub'] if 'sub' in current_user else None
 
 def get_tenant_id():
-  current_user = _request_ctx_stack.top.current_user
+  current_user = get_user_info()
   if 'sub' in current_user:
     row = gsdb.fetchone("SELECT tenant_id FROM gs_user_tenant WHERE user_id = %s AND is_owner = 't'", (current_user['sub'],))
     if row:
@@ -119,13 +121,12 @@ def get_tenant_id():
       access_token = generate_hash()
       qry = coredb.execute("INSERT INTO gs_tenant VALUES (DEFAULT, 'f', 't', %s, %s)", (slug, access_token,))
       row = coredb.fetchone("SELECT tenant_id FROM gs_tenant WHERE slug = %s", (slug,))
-      qry = gsdb.execute("INSERT INTO gs_tenant_features VALUES (%s, 1, 1, 'basic', 'disabled', 'f', 1)", (row['tenant_id'],))
       qry = gsdb.execute("INSERT INTO gs_user_tenant VALUES (%s, %s, 't')", (current_user['sub'], row['tenant_id'],))
       return row['tenant_id']
   return None
 
 def get_tenant_slug():
-  current_user = _request_ctx_stack.top.current_user
+  current_user = get_user_info()
   if 'sub' in current_user:
     row = gsdb.fetchone("SELECT tenant_id FROM gs_user_tenant WHERE user_id = %s AND is_owner = 't'", (current_user['sub'],))
     if row:
@@ -173,13 +174,6 @@ def get_userinfo():
     resp = requests.get("https://"+AUTH0_DOMAIN+"/userinfo", headers={'Authorization': 'Bearer '+token})
     json_data = resp.json()
     
-    permissions = []
-    row = gsdb.fetchall("SELECT f.permission_id, name FROM gs_user_permission f LEFT JOIN gs_permission i USING (permission_id) WHERE f.user_id = %s ORDER BY name ASC", (json_data['sub'],))
-    if row != None:
-      for permission in row:
-        permissions.append(permission['name'])
-
-    json_data['permissions'] = permissions
     return gs_make_response(data=json_data)
   raise AuthError({"code": "invalid_header",
         "description": "Unable to find appropriate key"}, 401)

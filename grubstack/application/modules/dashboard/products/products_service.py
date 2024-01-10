@@ -35,7 +35,7 @@ class ProductService:
 
     return product_id
   
-  def has_initialized_apps(user_id: str):
+  def has_initialized_apps(self, user_id: str):
     table = Table('gs_user_tenant')
     qry = Query.from_('gs_user_tenant').select('*').where(table.is_owner == 't').where(table.user_id == user_id)
 

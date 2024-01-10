@@ -57,9 +57,17 @@ app.config['MAIL_DEFAULT_SENDER'] = config.get('mail', 'from')
 app.config['MAIL_DEBUG']          = config.getboolean('mail', 'debug', fallback=False)
 
 # auth0
-app.config['AUTH0_DOMAIN'] = 'dev-x2xvjtterdxi3zgj.us.auth0.com'
-app.config['AUTH0_AUDIENCE'] = 'https://api.grubstack.app/v1'
-app.config['AUTH0_CLIENT_ID'] = 'fzdrD4DJDsg992k2KCr3rngy9Ph6W5YG'
+app.config['AUTH0_DOMAIN'] = os.environ.get('AUTH0_DOMAIN') or 'dev-x2xvjtterdxi3zgj.us.auth0.com'
+app.config['AUTH0_AUDIENCE'] = os.environ.get('AUTH0_AUDIENCE') or 'https://api.grubstack.app/v1'
+app.config['AUTH0_CLIENT_ID'] = os.environ.get('AUTH0_AUDIENCE') or 'fzdrD4DJDsg992k2KCr3rngy9Ph6W5YG'
+
+# Stripe
+app.config['STRIPE_API_KEY'] = os.environ.get('STRIPE_API_KEY') or 'sk_test_51OHnQ4DfFHq1VxcZDKpIDalp9YERZFkAwzNED90Mw4Zom5tazKoeXaC7qeiuzP3nXcQVgZKdYbpJbmlY4ebCzGED00tqrFb7Fm'
+
+# Subscriptions
+app.config['STANDARD_PLAN_ID'] = os.environ.get('STANDARD_PLAN_ID') or 'price_1OHoQ3DfFHq1VxcZ7kKTAsQy'
+app.config['ENHANCED_PLAN_ID'] = os.environ.get('ENHANCED_PLAN_ID') or 'price_1OMtq0DfFHq1VxcZgqfQCq9c'
+app.config['COMPLETE_PLAN_ID'] = os.environ.get('COMPLETE_PLAN_ID') or 'price_1OMtqXDfFHq1VxcZoAwW3v8l'
 
 # Initialize globals
 mail = Mail(app)
