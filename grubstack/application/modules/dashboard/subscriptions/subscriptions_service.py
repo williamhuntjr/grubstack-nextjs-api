@@ -34,7 +34,8 @@ class SubscriptionService:
         if price['lookup_key'] in ALLOWED_PRODUCTS:
           json_data = {
             "id": price['id'],
-            "name": price['lookup_key'] or '',
+            "name": product['name'],
+            "slug": price['lookup_key'] or '',
             "price": price['unit_amount'],
             "product": price['product']
           }
