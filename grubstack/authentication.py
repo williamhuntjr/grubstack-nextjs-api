@@ -3,10 +3,12 @@ from six.moves.urllib.request import urlopen
 from functools import wraps
 from jose import jwt
 
+from pypika import Query, Table, Order, Parameter
+
 from flask import request, _request_ctx_stack, session, Blueprint
-from .utilities import generate_hash, gs_make_response
 
 from . import app, config, logger, gsdb, coredb
+from .utilities import generate_hash, gs_make_response
 
 AUTH0_DOMAIN = app.config['AUTH0_DOMAIN']
 AUTH0_AUDIENCE = app.config['AUTH0_AUDIENCE']
@@ -113,15 +115,39 @@ def get_user_id():
 def get_tenant_id():
   current_user = get_user_info()
   if 'sub' in current_user:
-    row = gsdb.fetchone("SELECT tenant_id FROM gs_user_tenant WHERE user_id = %s AND is_owner = 't'", (current_user['sub'],))
+    table = Table('gs_user_tenant')
+    qry = Query.from_('gs_user_tenant').select('tenant_id').where(table.user_id == current_user['sub']).where(table.is_owner == 't')
+    row = gsdb.fetchone(str(qry))
+
     if row:
       return row['tenant_id']
     else:
       slug = generate_hash()
       access_token = generate_hash()
-      qry = coredb.execute("INSERT INTO gs_tenant VALUES (DEFAULT, 'f', 't', %s, %s)", (slug, access_token,))
-      row = coredb.fetchone("SELECT tenant_id FROM gs_tenant WHERE slug = %s", (slug,))
-      qry = gsdb.execute("INSERT INTO gs_user_tenant VALUES (%s, %s, 't')", (current_user['sub'], row['tenant_id'],))
+
+      table = Table('gs_tenant')
+
+      qry = Query.into(table).columns(
+        'is_suspended',
+        'is_active',
+        'slug',
+        'access_token'
+      ).insert('f', 't', Parameter('%s'), Parameter('%s'))
+
+      coredb.execute(str(qry), (slug, access_token,))
+
+      qry = Query.from_('gs_tenant').select('tenant_id').where(table.slug == slug)
+      row = coredb.fetchone(str(qry))
+
+      table = Table('gs_user_tenant')
+      qry = Query.into(table).columns(
+        'user_id',
+        'tenant_id',
+        'is_owner',
+      ).insert(Parameter('%s'), Parameter('%s'), 't')
+      
+      gsdb.execute(str(qry), (current_user['sub'], row['tenant_id'],))
+
       return row['tenant_id']
   return None
 

@@ -73,6 +73,9 @@ class SubscriptionService:
 
       limits = gsdb.fetchone(str(qry))
 
-      return format_limits(limits)
+      if limits:
+        return format_limits(limits)
+      else:
+        return {}
     else:
       return {}

@@ -119,13 +119,15 @@ def user_subscriptions_index():
 def create_subscription():
   try:
     if request.json:
+      json_data = {}
       tenant_id = get_tenant_id()
+      
       data = json.loads(request.data)
+
       params = data['params']
       customer_id = params['customer_id']
       price_id = params['price_id']
 
-      json_data = {}
       subscription = subscription_service.create_subscription(tenant_id, customer_id, price_id)
 
       if subscription.pending_setup_intent is not None:
@@ -180,6 +182,7 @@ def update_subscription(subscription_id: str):
   try:
     if request.json:
       data = json.loads(request.data)
+
       params = data['params']
 
       if 'cancel_at_period_end' in params:

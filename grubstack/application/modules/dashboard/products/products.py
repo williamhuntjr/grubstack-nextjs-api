@@ -21,8 +21,8 @@ product_service = ProductService()
 def get_all():
   try:
     json_data = []
-    user_id = get_user_id()
-    tenant_id = product_service.get_tenant_id(user_id)
+
+    tenant_id = get_tenant_id()
     
     if tenant_id is not None:
       apps = product_service.get_all(tenant_id)
@@ -40,13 +40,13 @@ def get_all():
           pass
         
         json_data.append({
-          "app_id":app['app_id'],
-          "app_url":app['app_url'],
-          "tenant_id":app['tenant_id'],
-          "product_id":app['product_id'],
-          "is_front_end_app":app['is_front_end_app'],
-          "product_name":app['name'],
-          "product_description":app['description'],
+          "app_id": app['app_id'],
+          "app_url": app['app_url'],
+          "tenant_id": app['tenant_id'],
+          "product_id": app['product_id'],
+          "is_front_end_app": app['is_front_end_app'],
+          "product_name": app['name'],
+          "product_description": app['description'],
           "status": status
         })
 
@@ -63,10 +63,11 @@ def get_all():
 def restart_app():
   try:
     if request.json:
-      data = json.loads(request.data)
-      app_id = data['app_id']
       tenant_id = get_tenant_id()
       tenant_slug = get_slug(tenant_id)
+
+      data = json.loads(request.data)
+      app_id = data['app_id']
 
       if app_id:
         product_id = product_service.get_app_product_id(tenant_id, app_id)
@@ -105,6 +106,7 @@ def restart_app():
 def init_all_apps():
   try:
     user_id = get_user_id()
+
     has_initialized = product_service.has_initialized_apps(user_id)
 
     if has_initialized is True:

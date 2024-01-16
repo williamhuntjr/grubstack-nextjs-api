@@ -3,6 +3,8 @@ import subprocess
 import boto3
 from flask import Response
 
+from pypika import Query, Table, Parameter
+
 from grubstack import app, config, gsdb, coredb
   
 def get_prefix(product_id: int):
@@ -80,7 +82,15 @@ def install_api(tenant_id: str):
     api_url = 'https://api-' + slug + '.grubstack.app'
     row = gsdb.fetchone("SELECT * FROM gs_tenant_app WHERE tenant_id = %s AND product_id = '1' AND app_url = %s", (tenant_id, api_url,))
     if row == None:
-      qry = gsdb.execute("INSERT INTO gs_tenant_app VALUES (DEFAULT, %s, %s, %s)", (tenant_id, 1, api_url,))
+      table = Table('gs_tenant_app')
+
+      qry = Query.into(table).columns(
+        'tenant_id',
+        'product_id',
+        'app_url',
+      ).insert(Parameter('%s'), 1, Parameter('%s'))
+
+      gsdb.execute(str(qry), (tenant_id, api_url,))
 
     proxy_servers = config.get('proxy','servers', fallback='107.161.173.97')
     server_list = proxy_servers.split(";")
@@ -123,7 +133,15 @@ def install_core(tenant_id: str):
     core_url = 'https://core-' + slug + '.grubstack.app'
     row = gsdb.fetchone("SELECT * FROM gs_tenant_app WHERE tenant_id = %s AND product_id = '2' AND app_url = %s", (tenant_id, core_url,))
     if row == None:
-      qry = gsdb.execute("INSERT INTO gs_tenant_app VALUES (DEFAULT, %s, %s, %s)", (tenant_id, 2, core_url,))
+      table = Table('gs_tenant_app')
+
+      qry = Query.into(table).columns(
+        'tenant_id',
+        'product_id',
+        'app_url',
+      ).insert(Parameter('%s'), 2, Parameter('%s'))
+
+      gsdb.execute(str(qry), (tenant_id, core_url,))
 
     proxy_servers = config.get('proxy','servers', fallback='107.161.173.97')
     server_list = proxy_servers.split(";")
@@ -170,7 +188,15 @@ def install_web(tenant_id: str):
     web_url = 'https://web-' + slug + '.grubstack.app'
     row = gsdb.fetchone("SELECT * FROM gs_tenant_app WHERE tenant_id = %s AND product_id = '3' AND app_url = %s", (tenant_id, web_url,))
     if row == None:
-      qry = gsdb.execute("INSERT INTO gs_tenant_app VALUES (DEFAULT, %s, %s, %s)", (tenant_id, 3, web_url,))
+      table = Table('gs_tenant_app')
+
+      qry = Query.into(table).columns(
+        'tenant_id',
+        'product_id',
+        'app_url',
+      ).insert(Parameter('%s'), 3, Parameter('%s'))
+
+      gsdb.execute(str(qry), (tenant_id, web_url,))
 
     proxy_servers = config.get('proxy','servers', fallback='107.161.173.97')
     server_list = proxy_servers.split(";")

@@ -37,11 +37,16 @@ class ProductService:
   
   def has_initialized_apps(self, user_id: str):
     table = Table('gs_user_tenant')
-    qry = Query.from_('gs_user_tenant').select('*').where(table.is_owner == 't').where(table.user_id == user_id)
+    qry = Query.from_('gs_user_tenant').select('tenant_id').where(table.is_owner == 't').where(table.user_id == user_id)
 
-    resp = gsdb.fetchone(str(qry))
+    row = gsdb.fetchone(str(qry))
 
-    if resp is not None:
-      return True
+    if row is not None:
+      table = Table('gs_tenant_app')
+      qry = Query.from_('gs_tenant_app').select('*').where(table.tenant_id == row[0])
+
+      rows = gsdb.fetchall(str(qry))
+      if len(rows) > 0:
+        return True
 
     return False

@@ -79,6 +79,18 @@ def generate_account_limits(tenant_id: str, customer_id: str, subscription_servi
               backup_frequency = 'M'
 
       table = Table('gs_tenant_feature')
-      qry = Query.update(table).set(table.franchise_count, franchise_count).set(table.store_count, store_count).set(table.financial_report_lvl, financial_report_lvl).set(table.tech_support_lvl, tech_support_lvl).set(table.is_shareable, is_shareable).set(table.backup_frequency, backup_frequency).where(table.tenant_id == tenant_id)
+      qry = Query.update(table).set(
+          table.franchise_count, franchise_count
+        ).set(
+          table.store_count, store_count
+        ).set(
+          table.financial_report_lvl, financial_report_lvl
+        ).set(
+          table.tech_support_lvl, tech_support_lvl
+        ).set(
+          table.is_shareable, is_shareable
+        ).set(
+          table.backup_frequency, backup_frequency
+        ).where(table.tenant_id == tenant_id)
 
       return gsdb.execute(str(qry))
