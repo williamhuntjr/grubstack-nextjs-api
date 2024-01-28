@@ -116,7 +116,7 @@ def get_tenant_id():
   current_user = get_user_info()
   if 'sub' in current_user:
     table = Table('gs_user_tenant')
-    qry = Query.from_('gs_user_tenant').select('tenant_id').where(table.user_id == current_user['sub']).where(table.is_owner == 't')
+    qry = Query.from_(table).select('tenant_id').where(table.user_id == current_user['sub']).where(table.is_owner == 't')
     row = gsdb.fetchone(str(qry))
 
     if row:
@@ -126,17 +126,15 @@ def get_tenant_id():
       access_token = generate_hash()
 
       table = Table('gs_tenant')
-
       qry = Query.into(table).columns(
         'is_suspended',
         'is_active',
         'slug',
         'access_token'
       ).insert('f', 't', Parameter('%s'), Parameter('%s'))
-
       coredb.execute(str(qry), (slug, access_token,))
 
-      qry = Query.from_('gs_tenant').select('tenant_id').where(table.slug == slug)
+      qry = Query.from_(table).select('tenant_id').where(table.slug == slug)
       row = coredb.fetchone(str(qry))
 
       table = Table('gs_user_tenant')
@@ -154,11 +152,21 @@ def get_tenant_id():
 def get_tenant_slug():
   current_user = get_user_info()
   if 'sub' in current_user:
-    row = gsdb.fetchone("SELECT tenant_id FROM gs_user_tenant WHERE user_id = %s AND is_owner = 't'", (current_user['sub'],))
+    table = Table('gs_user_tenant')
+    qry = Query.from_(table).select('tenant_id').where(table.user_id == current_user['sub']).where(table.is_owner == 't')
+    row = gsdb.fetchone(str(qry))
+
     if row:
-      tenant_id = row['tenant_id']
-      slug = coredb.fetchone("SELECT slug FROM gs_tenant WHERE tenant_id = %s", (tenant_id,))
-      return slug[0]
+      tenant_id = row[0]
+
+      table = Table('gs_tenant')
+      qry = Query.from_(table).select('slug').where(table.tenant_id == tenant_id)
+      slug = coredb.fetchone(str(qry))
+      
+      if slug != None:
+        return slug[0]
+      else:
+        return None
   return None
 
 @gsauth.route('/auth/userinfo', methods=['GET'])

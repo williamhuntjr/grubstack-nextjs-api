@@ -8,7 +8,7 @@ from grubstack.utilities import gs_make_response
 from grubstack.envelope import GStatusCode
 
 from .subscriptions_service import SubscriptionService
-from .subscriptions_utilities import format_subscription, generate_account_limits
+from .subscriptions_utilities import format_subscription
 
 subscriptions = Blueprint('subscriptions', __name__)
 logger = logging.getLogger('grubstack')
@@ -220,10 +220,10 @@ def webhook():
     # Handle the event
     if event['type'] == 'customer.subscription.created':
       subscription = event['data']['object']
-      generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'], subscription_service)
+      subscription_service.generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'], subscription_service)
     elif event['type'] == 'customer.subscription.deleted':
       subscription = event['data']['object']
-      generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'], subscription_service)
+      subscription_service.generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'], subscription_service)
     elif event['type'] == 'customer.subscription.paused':
       subscription = event['data']['object']
     elif event['type'] == 'customer.subscription.pending_update_applied':
@@ -236,7 +236,7 @@ def webhook():
       subscription = event['data']['object']
     elif event['type'] == 'customer.subscription.updated':
       subscription = event['data']['object']
-      generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'], subscription_service)
+      subscription_service.generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'], subscription_service)
     elif event['type'] == 'subscription_schedule.aborted':
       subscription_schedule = event['data']['object']
     elif event['type'] == 'subscription_schedule.canceled':
