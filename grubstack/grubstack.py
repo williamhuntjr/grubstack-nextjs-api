@@ -2,10 +2,14 @@ import logging
 from datetime import datetime
 from flask import Blueprint, Response, g, jsonify
 from . import app, gsdb
-from .authentication import AuthError
 
 gsapi = Blueprint('gsapi', __name__)
 logger = logging.getLogger('grubstack')
+
+class AuthError(Exception):
+  def __init__(self, error, status_code):
+    self.error = error
+    self.status_code = status_code
 
 @app.errorhandler(AuthError)
 def handle_auth_error(ex):

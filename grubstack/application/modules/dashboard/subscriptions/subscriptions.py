@@ -1,20 +1,25 @@
 import logging, json, stripe
 
 from flask import Blueprint, request
+from flask_jwt_extended import get_current_user
 
 from grubstack import app, config, gsdb
-from grubstack.authentication import requires_auth, get_user_info, get_tenant_id
 from grubstack.utilities import gs_make_response
 from grubstack.envelope import GStatusCode
 
+from grubstack.application.modules.authentication.authentication import jwt_required
+from grubstack.application.modules.authentication.authentication_service import AuthenticationService
+
 from .subscriptions_service import SubscriptionService
 from .subscriptions_utilities import format_subscription
+
+webhook_secret = app.config['STRIPE_WEBHOOK']
 
 subscriptions = Blueprint('subscriptions', __name__)
 logger = logging.getLogger('grubstack')
 
 subscription_service = SubscriptionService()
-webhook_secret = 'whsec_y8pVyTOaAujOqmHDBBrMCjugt72k59xZ'
+authentication_service = AuthenticationService()
 
 @subscriptions.route('/subscriptions', methods=['GET'])
 def index():
@@ -24,26 +29,26 @@ def index():
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to retrieve products. Please try again later.',
+    return gs_make_response(message='Unable to retrieve products',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
 @subscriptions.route('/subscriptions/account-limits', methods=['GET'])
-@requires_auth
+@jwt_required()
 def get_account_limits():
   try:
-    tenant_id = get_tenant_id()
+    tenant_id = authentication_service.get_tenant_id()
     limits = subscription_service.get_account_limits(tenant_id)
     return gs_make_response(data=limits)
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to retrieve account limits. Please try again later.',
+    return gs_make_response(message='Unable to retrieve account limits',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
 @subscriptions.route('/subscriptions/user/<string:subscription_id>', methods=['GET'])
-@requires_auth
+@jwt_required()
 def get_subscription(subscription_id: str):
   try:
     subscription = subscription_service.get(subscription_id)
@@ -51,22 +56,22 @@ def get_subscription(subscription_id: str):
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to retrieve subscription. Please try again later.',
+    return gs_make_response(message='Unable to retrieve subscription',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
 @subscriptions.route('/subscriptions/upcoming-payment/<string:subscription_id>', methods=['GET'])
-@requires_auth
+@jwt_required()
 def get_upcoming_payment(subscription_id: str):
   try:
-    user = get_user_info()
-    payment = subscription_service.upcoming_payment(user['app_metadata']['stripe_customer_id'], subscription_id)
+    user = get_current_user()
+    payment = subscription_service.upcoming_payment(user.stripe_customer_id, subscription_id)
 
     return gs_make_response(data=payment)
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to retrieve upcoming payment. Please try again later.',
+    return gs_make_response(message='Unable to retrieve upcoming payment',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
@@ -78,7 +83,7 @@ def get_product(product_id: str):
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to retrieve product. Please try again later.',
+    return gs_make_response(message='Unable to retrieve product',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
@@ -90,43 +95,43 @@ def get_product_prices(product_id: str):
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to retrieve product prices. Please try again later.',
+    return gs_make_response(message='Unable to retrieve product prices',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
 @subscriptions.route('/subscriptions/user', methods=['GET'])
-@requires_auth
+@jwt_required()
 def user_subscriptions_index():
   try:
     json_data = []
 
-    user = get_user_info()
-    subscriptions = subscription_service.index(user['app_metadata']['stripe_customer_id'])
+    user = get_current_user()
+    if user.stripe_customer_id != None:
+      subscriptions = subscription_service.index(user.stripe_customer_id)
 
-    for subscription in subscriptions:
-      json_data.append(format_subscription(subscription, subscription_service.get_product(subscription['plan']['product'])))
+      for subscription in subscriptions:
+        json_data.append(format_subscription(subscription, subscription_service.get_product(subscription['plan']['product'])))
 
     return gs_make_response(data=json_data, totalrowcount=len(json_data))
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to retrieve user subscription. Please try again later.',
+    return gs_make_response(message='Unable to retrieve user subscription',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
 @subscriptions.route('/subscriptions/create', methods=['POST'])
-@requires_auth
+@jwt_required()
 def create_subscription():
   try:
     if request.json:
       json_data = {}
-      tenant_id = get_tenant_id()
+      tenant_id = authentication_service.get_tenant_id()
       
       data = json.loads(request.data)
 
-      params = data['params']
-      customer_id = params['customer_id']
-      price_id = params['price_id']
+      customer_id = data['customer_id']
+      price_id = data['price_id']
 
       subscription = subscription_service.create_subscription(tenant_id, customer_id, price_id)
 
@@ -155,13 +160,13 @@ def create_subscription():
                             httpstatus=500)
 
 @subscriptions.route('/subscriptions/<string:subscription_id>', methods=['DELETE'])
-@requires_auth
+@jwt_required()
 def delete_subscription(subscription_id: str):
   try:
-    user = get_user_info()
+    user = get_current_user()
 
     subscription = subscription_service.get(subscription_id)
-    if subscription['customer'] != user['app_metadata']['stripe_customer_id']:
+    if subscription['customer'] != user.stripe_customer_id:
       return gs_make_response(message='Forbidden',
                         status=GStatusCode.ERROR,
                         httpstatus=403)
@@ -177,16 +182,14 @@ def delete_subscription(subscription_id: str):
                             httpstatus=500)
 
 @subscriptions.route('/subscriptions/<string:subscription_id>', methods=['PUT'])
-@requires_auth
+@jwt_required()
 def update_subscription(subscription_id: str):
   try:
     if request.json:
       data = json.loads(request.data)
 
-      params = data['params']
-
-      if 'cancel_at_period_end' in params:
-        stripe.Subscription.modify(subscription_id, cancel_at_period_end=params['cancel_at_period_end'])
+      if 'cancel_at_period_end' in data:
+        stripe.Subscription.modify(subscription_id, cancel_at_period_end=data['cancel_at_period_end'])
 
       return gs_make_response(status=GStatusCode.SUCCESS,
                               httpstatus=200)
@@ -220,10 +223,10 @@ def webhook():
     # Handle the event
     if event['type'] == 'customer.subscription.created':
       subscription = event['data']['object']
-      subscription_service.generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'], subscription_service)
+      subscription_service.generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'])
     elif event['type'] == 'customer.subscription.deleted':
       subscription = event['data']['object']
-      subscription_service.generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'], subscription_service)
+      subscription_service.generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'])
     elif event['type'] == 'customer.subscription.paused':
       subscription = event['data']['object']
     elif event['type'] == 'customer.subscription.pending_update_applied':
@@ -236,7 +239,7 @@ def webhook():
       subscription = event['data']['object']
     elif event['type'] == 'customer.subscription.updated':
       subscription = event['data']['object']
-      subscription_service.generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'], subscription_service)
+      subscription_service.generate_account_limits(subscription['metadata']['tenant_id'], subscription['customer'])
     elif event['type'] == 'subscription_schedule.aborted':
       subscription_schedule = event['data']['object']
     elif event['type'] == 'subscription_schedule.canceled':

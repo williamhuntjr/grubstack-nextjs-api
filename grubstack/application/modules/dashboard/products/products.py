@@ -2,27 +2,30 @@ import logging, json, subprocess
 
 from flask import Blueprint, request
 from flask_cors import cross_origin
+from flask_jwt_extended import get_jwt_identity
 
 from grubstack import app, config, gsdb
 from grubstack.utilities import gs_make_response, generate_hash
-from grubstack.authentication import AuthError, requires_auth, requires_scope, get_user_id, get_tenant_id, get_tenant_slug
 from grubstack.envelope import GStatusCode
 
-from .products_service import ProductService
-from .products_utilities import get_prefix
+from grubstack.application.modules.authentication.authentication import jwt_required
+from grubstack.application.modules.authentication.authentication_service import AuthenticationService
 
-products = Blueprint('product', __name__)
+from .products_service import ProductService
+from .products_utilities import get_prefix, format_app
+
+products = Blueprint('products', __name__)
 logger = logging.getLogger('grubstack')
 
 product_service = ProductService()
+authentication_service = AuthenticationService()
 
 @products.route('/products/apps', methods=['GET'])
-@requires_auth
+@jwt_required()
 def get_all():
   try:
     json_data = []
-
-    tenant_id = get_tenant_id()
+    tenant_id = authentication_service.get_tenant_id()
     
     if tenant_id is not None:
       apps = product_service.get_all(tenant_id)
@@ -38,32 +41,23 @@ def get_all():
           status = resp[0].decode('utf8').strip()
         except Exception:
           pass
-        
-        json_data.append({
-          "app_id": app['app_id'],
-          "app_url": app['app_url'],
-          "tenant_id": app['tenant_id'],
-          "product_id": app['product_id'],
-          "is_front_end_app": app['is_front_end_app'],
-          "product_name": app['name'],
-          "product_description": app['description'],
-          "status": status
-        })
+
+        json_data.append(format_app(app, status))
 
     return gs_make_response(data=json_data)
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to retrieve apps. Please try again later.',
+    return gs_make_response(message='Unable to retrieve apps',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
 @products.route('/products/shared-apps', methods=['GET'])
-@requires_auth
+@jwt_required()
 def get_shared_apps():
   try:
     json_data = []
-    user_id = get_user_id()
+    user_id = get_jwt_identity()
     
     if user_id is not None:
       apps = product_service.get_shared_apps(user_id)
@@ -76,53 +70,45 @@ def get_shared_apps():
 
         try:
           resp = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-          status = resp[0].decode('utf8').strip()
+          result = resp[0].decode('utf8').strip()
+          if result:
+            status = result
         except Exception:
           pass
         
-        json_data.append({
-          "app_id": app['app_id'],
-          "app_url": app['app_url'],
-          "tenant_id": app['tenant_id'],
-          "product_id": app['product_id'],
-          "is_front_end_app": app['is_front_end_app'],
-          "product_name": app['name'],
-          "product_description": app['description'],
-          "status": status
-        })
+        json_data.append(format_app(app, status))
 
     return gs_make_response(data=json_data)
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to retrieve shared apps. Please try again later.',
+    return gs_make_response(message='Unable to retrieve shared apps',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
                             
 @products.route('/products/app/restart', methods=['POST'])
-@requires_auth
+@jwt_required()
 def restart_app():
   try:
     if request.json:
-      tenant_id = get_tenant_id()
+      tenant_id = authentication_service.get_tenant_id()
       tenant_slug = product_service.get_slug(tenant_id)
 
       data = json.loads(request.data)
+      
       app_id = data['app_id']
 
       if app_id:
         product_id = product_service.get_app_product_id(tenant_id, app_id)
 
-        if product_id is not None:
-          if product_id == 1:
+        match product_id:
+          case 1:
             product_service.uninstall_api(tenant_id)
             product_service.install_api(tenant_id)
-
-          if product_id == 2:
+          case 2:
             product_service.uninstall_core(tenant_id)
             product_service.install_core(tenant_id)
-        
-          if product_id == 3:
+          case 3:
             product_service.uninstall_web(tenant_id)
             product_service.install_web(tenant_id)
 
@@ -138,15 +124,15 @@ def restart_app():
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to restart app. Please try again later.',
+    return gs_make_response(message='Unable to restart app',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
 @products.route('/products/app/init', methods=['POST'])
-@requires_auth
+@jwt_required()
 def init_all_apps():
   try:
-    user_id = get_user_id()
+    user_id = get_jwt_identity()
 
     has_initialized = product_service.has_initialized_apps(user_id)
 
@@ -155,11 +141,11 @@ def init_all_apps():
                         status=GStatusCode.ERROR,
                         httpstatus=400)
     else:
-      tenant_id = get_tenant_id()
+      tenant_id = authentication_service.get_tenant_id()
       
       if tenant_id:
         product_service.init_apps(tenant_id)
-        return gs_make_response(message='GrubStack initialized.')
+        return gs_make_response(message='GrubStack suite initialized')
 
     return gs_make_response(message='Unable to init apps',
                   status=GStatusCode.ERROR,
@@ -167,7 +153,7 @@ def init_all_apps():
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to init apps. Please try again later.',
+    return gs_make_response(message='Unable to init apps',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 

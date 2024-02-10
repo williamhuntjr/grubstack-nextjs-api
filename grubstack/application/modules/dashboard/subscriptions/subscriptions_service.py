@@ -87,7 +87,7 @@ class SubscriptionService:
     else:
       return {}
 
-  def generate_account_limits(self, tenant_id: str, customer_id: str, subscription_service: dict):
+  def generate_account_limits(self, tenant_id: str, customer_id: str):
     if tenant_id != None:
       subscriptions = self.index(customer_id)
 
@@ -103,7 +103,7 @@ class SubscriptionService:
           for item in subscription['items']['data']:
             if item['price']['lookup_key'] in ALLOWED_PRODUCTS:
               table = Table('gs_subscription')
-              qry = Query.from_('gs_subscription').select(
+              qry = Query.from_(table).select(
                 'franchise_count',
                 'store_count',
                 'financial_report_lvl',
@@ -139,18 +139,23 @@ class SubscriptionService:
                 backup_frequency = 'M'
 
         table = Table('gs_tenant_feature')
-        qry = Query.update(table).set(
-            table.franchise_count, franchise_count
-          ).set(
-            table.store_count, store_count
-          ).set(
-            table.financial_report_lvl, financial_report_lvl
-          ).set(
-            table.tech_support_lvl, tech_support_lvl
-          ).set(
-            table.is_shareable, is_shareable
-          ).set(
-            table.backup_frequency, backup_frequency
-          ).where(table.tenant_id == tenant_id)
-
+        qry = Query.from_(table).select('*').where(table.tenant_id == tenant_id)
+        row = gsdb.fetchone(str(qry))
+        if row != None:
+          qry = Query.update(table).set(
+              table.franchise_count, franchise_count
+            ).set(
+              table.store_count, store_count
+            ).set(
+              table.financial_report_lvl, financial_report_lvl
+            ).set(
+              table.tech_support_lvl, tech_support_lvl
+            ).set(
+              table.is_shareable, is_shareable
+            ).set(
+              table.backup_frequency, backup_frequency
+            ).where(table.tenant_id == tenant_id)
+        else:
+          qry = Query.into(table).insert(tenant_id, franchise_count, store_count, backup_frequency, is_shareable, tech_support_lvl, financial_report_lvl)
+       
         gsdb.execute(str(qry))

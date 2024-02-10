@@ -25,8 +25,6 @@ class GrubStackLogHandler(logging.Handler):
     msg = self.format(record)
 
     try:
-      cur = gsdb.getcursor()
-      cur.execute(qry, params)
-      cur.close()
+      gsdb.execute(qry, params)
     except Exception as e:
       print(f'Error getting database cursor for logging! Message: {e}')

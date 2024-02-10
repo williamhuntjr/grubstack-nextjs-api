@@ -4,6 +4,8 @@ import logging, configparser, os, sys, argparse
 from flask import Flask
 from flask_mail import Mail
 from flask_cors import CORS
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager
 from pathlib import Path
 from logging.handlers import RotatingFileHandler
 
@@ -63,17 +65,32 @@ app.config['AUTH0_CLIENT_ID'] = os.environ.get('AUTH0_AUDIENCE') or 'fzdrD4DJDsg
 
 # Stripe
 app.config['STRIPE_API_KEY'] = os.environ.get('STRIPE_API_KEY') or 'sk_test_51OHnQ4DfFHq1VxcZDKpIDalp9YERZFkAwzNED90Mw4Zom5tazKoeXaC7qeiuzP3nXcQVgZKdYbpJbmlY4ebCzGED00tqrFb7Fm'
+app.config['STRIPE_WEBHOOK'] = os.environ.get('STRIPE_WEBHOOK') or 'whsec_y8pVyTOaAujOqmHDBBrMCjugt72k59xZ'
 
 # Subscriptions
 app.config['STANDARD_PLAN_ID'] = os.environ.get('STANDARD_PLAN_ID') or 'price_1OHoQ3DfFHq1VxcZ7kKTAsQy'
 app.config['ENHANCED_PLAN_ID'] = os.environ.get('ENHANCED_PLAN_ID') or 'price_1OMtq0DfFHq1VxcZgqfQCq9c'
 app.config['COMPLETE_PLAN_ID'] = os.environ.get('COMPLETE_PLAN_ID') or 'price_1OMtqXDfFHq1VxcZoAwW3v8l'
 
+# flask-jwt
+app.config['JWT_SECRET_KEY'] = config.get('authentication', 'secret', fallback='secret')
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = config.getint('authentication', 'access_token_expires', fallback=3600)
+app.config['JWT_REFRESH_TOKEN_EXPIRES'] = config.getint('authentication', 'refresh_token_expires', fallback=2592000)
+app.config['JWT_TOKEN_LOCATION'] = ["cookies", "headers", "json"]
+app.config['JWT_COOKIE_DOMAIN'] = '.grubstack.app'
+app.config['JWT_REFRESH_COOKIE_PATH'] = '/'
+app.config['JWT_COOKIE_CSRF_PROTECT'] = False
+app.config["JWT_COOKIE_SECURE"] = True
+app.config['JWT_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_HTTPONLY'] = False
+jwt = JWTManager(app)
+
 # Initialize globals
 mail = Mail(app)
 gsdb = GrubDatabase(config)
 coredb = GrubDatabase(config, database='grubstack_core')
-cors = CORS(app, supports_credentials=True)
+cors = CORS(app, origin=['http://localhost:3000', 'https://grubstack.app'], supports_credentials=True)
+bcrypt = Bcrypt(app)
 
 # Logger
 from .loghandler import GrubStackLogHandler
@@ -104,5 +121,4 @@ if config.getboolean('logging', 'log_to_database', fallback=False):
   logger.addHandler(gshandler)
 
 from . import grubstack
-from . import authentication
 from . import application

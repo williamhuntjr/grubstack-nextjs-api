@@ -1,6 +1,6 @@
 import boto3, subprocess
 
-from pypika import Query, Table, Tables, Order, functions
+from pypika import Query, Table, Tables, Order, functions, Parameter
 
 from grubstack import app, config, gsdb, coredb
 
@@ -61,16 +61,6 @@ class ProductService:
 
     apps = gsdb.fetchall(str(qry))
     return apps
-
-  def get_tenant_id(self, user_id: str):
-    table = Table('gs_user_tenant')
-    qry = Query.from_(table).select('tenant_id').where(table.user_id == user_id).where(table.is_owner == 't')
-    row = gsdb.fetchone(str(qry))
-
-    if row is not None:
-      return row[0]
-    else:
-      return None
 
   def get_app_product_id(self, tenant_id: str, app_id: int):
     table = Table('gs_tenant_app')
@@ -324,8 +314,7 @@ class ProductService:
         table
       ).select(
         '*'
-      ).where
-      (
+      ).where(
         table.tenant_id == tenant_id
       ).where(
         table.product_id == '3'
