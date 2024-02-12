@@ -9,11 +9,17 @@ class SharedAccessService:
     pass
   
   def get_all(self, tenant_id: str):
-    gs_user_tenant = Table('gs_user_tenant')
+    gs_user_tenant, gs_user = Tables('gs_user_tenant', 'gs_user')
+    
     qry = Query.from_(
       gs_user_tenant
+    ).left_join(
+      gs_user
+    ).on(
+      gs_user_tenant.user_id == functions.Cast(gs_user.user_id, 'text')
     ).select(
       gs_user_tenant.user_id,
+      gs_user.username
     ).where(
       gs_user_tenant.tenant_id == tenant_id
     ).where(
@@ -21,16 +27,16 @@ class SharedAccessService:
     )
 
     users = gsdb.fetchall(str(qry))
-    
+
     json_data = []
     
     for user in users:
       permissions = self.get_permissions(tenant_id, user[0])
       json_data.append({
         'id': user[0],
+        'username': user[1],
         'permissions': permissions
       })
-
     return json_data
   
   def get_permissions(self, tenant_id: str, user_id: str):

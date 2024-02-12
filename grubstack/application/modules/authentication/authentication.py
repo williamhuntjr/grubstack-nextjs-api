@@ -203,14 +203,14 @@ def login() -> Response:
                             httpstatus=500)
 
 @authentication.route('/auth/refresh', methods=['POST'])
-@jwt_required()
+@jwt_required(refresh=True)
 def refresh() -> Response:
   try:
     current_user = get_jwt_identity()
     jwt = get_jwt()
     user = authentication_service.fetch_user(current_user)
     access_token = create_access_token(identity=user)
-    refresh_token = request.cookies.get('refresh_token_cookie')
+    refresh_token = request.cookies.get('refresh_token_cookie') or request.headers['Authorization'].split(None, 1)[1].strip()
     decoded_access_token = decode_token(access_token)
     decoded_refresh_token = decode_token(refresh_token)
     authentication_service.add_token_to_database(access_token, app.config['JWT_IDENTITY_CLAIM'], user.username)
@@ -230,13 +230,14 @@ def refresh() -> Response:
     }
     response = make_response(jsonify({ "data": token }))
     set_access_cookies(response, access_token)
-    return response
+    set_refresh_cookies(response, refresh_token)
+    return response, 201
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='',
+    return gs_make_response(message='Unable to refresh token',
                             status=GStatusCode.ERROR,
-                            httpstatus=401)
+                            httpstatus=500)
 
 @authentication.route('/auth/whoami', methods=['GET'])
 @jwt_required()
@@ -244,8 +245,8 @@ def whoami() -> Response:
   try:
     user = authentication_service.fetch_user(get_jwt_identity())
     jwt = get_jwt()
-    access_token = request.cookies.get('access_token_cookie')
-    refresh_token = request.cookies.get('refresh_token_cookie')
+    access_token = request.cookies.get('_grubstack_access_token')
+    refresh_token = request.cookies.get('_grubstack_refresh_token')
     decoded_access_token = decode_token(access_token)
     decoded_refresh_token = decode_token(refresh_token)
     user = {
