@@ -95,8 +95,9 @@ def restart_app():
       tenant_slug = product_service.get_slug(tenant_id)
 
       data = json.loads(request.data)
-      
-      app_id = data['app_id']
+      params = data['params']
+
+      app_id = params['app_id']
 
       if app_id:
         product_id = product_service.get_app_product_id(tenant_id, app_id)

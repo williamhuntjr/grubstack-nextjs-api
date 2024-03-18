@@ -58,13 +58,22 @@ class ProductService:
     ).orderby(
       gs_product.name, order=Order.asc
     )
-
     apps = gsdb.fetchall(str(qry))
+
     return apps
 
   def get_app_product_id(self, tenant_id: str, app_id: int):
-    table = Table('gs_tenant_app')
-    qry = Query.from_(table).select('product_id').where(table.tenant_id == tenant_id).where(table.app_id == app_id)
+    gs_tenant_app = Table('gs_tenant_app')
+    qry = Query.from_(
+      gs_tenant_app
+    ).select(
+      gs_tenant_app.product_id
+    ).where(
+      gs_tenant_app.tenant_id == tenant_id
+    ).where(
+      gs_tenant_app.app_id == app_id
+    )
+
     row = gsdb.fetchone(str(qry))
 
     if row is not None:
@@ -75,27 +84,51 @@ class ProductService:
     return product_id
   
   def has_initialized_apps(self, user_id: str):
-    table = Table('gs_user_tenant')
-    qry = Query.from_(table).select('tenant_id').where(table.is_owner == 't').where(table.user_id == user_id)
+    gs_user_tenant = Table('gs_user_tenant')
+    qry = Query.from_(
+      gs_user_tenant
+    ).select(
+      gs_user_tenant.tenant_id
+    ).where(
+      gs_user_tenant.is_owner == 't'
+    ).where(
+      gs_user_tenant.user_id == user_id
+    )
+
     row = gsdb.fetchone(str(qry))
 
     if row is not None:
-      table = Table('gs_tenant_app')
-      qry = Query.from_(table).select('*').where(table.tenant_id == row[0])
+      gs_tenant_app = Table('gs_tenant_app')
+      qry = Query.from_(
+        gs_tenant_app
+      ).select(
+        '*'
+      ).where(
+        gs_tenant_app.tenant_id == row[0]
+      )
 
       rows = gsdb.fetchall(str(qry))
+
       if len(rows) > 0:
         return True
 
     return False
 
   def get_slug(self, tenant_id: str):
-    table = Table('gs_tenant')
-    qry = Query.from_(table).select('slug').where(table.tenant_id == tenant_id)
+    gs_tenant = Table('gs_tenant')
+    qry = Query.from_(
+      gs_tenant
+    ).select(
+      gs_tenant.slug
+    ).where(
+      gs_tenant.tenant_id == tenant_id
+    )
+
     row = coredb.fetchone(str(qry))
 
     if row != None:
       return row[0]
+
     return None
 
   def create_dns(self, record: str, address: str):
@@ -124,8 +157,16 @@ class ProductService:
     )
 
   def install_api(self, tenant_id: str):
-    table = Table('gs_tenant')
-    qry = Query.from_(table).select('slug', 'access_token').where(table.tenant_id == tenant_id)
+    gs_tenant = Table('gs_tenant')
+    qry = Query.from_(
+      gs_tenant
+    ).select(
+      gs_tenant.slug,
+      gs_tenant.access_token
+    ).where(
+      gs_tenant.tenant_id == tenant_id
+    )
+
     row = coredb.fetchone(str(qry))
 
     if row:
@@ -164,39 +205,52 @@ class ProductService:
       result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
       api_url = 'https://api-' + slug + '.grubstack.app'
 
-      table = Table('gs_tenant_app')
+      gs_tenant_app = Table('gs_tenant_app')
       qry = Query.from_(
-        table
+        gs_tenant_app
       ).select(
         '*'
       ).where(
-        table.tenant_id == tenant_id
+        gs_tenant_app.tenant_id == tenant_id
       ).where(
-        table.product_id == '1'
+        gs_tenant_app.product_id == '1'
       ).where(
-        table.app_url == api_url
+        gs_tenant_app.app_url == api_url
       )
+
       row = gsdb.fetchone(str(qry))
 
       if row == None:
-        table = Table('gs_tenant_app')
-
-        qry = Query.into(table).columns(
-          'tenant_id',
-          'product_id',
-          'app_url',
-        ).insert(Parameter('%s'), 1, Parameter('%s'))
+        qry = Query.into(
+          gs_tenant_app
+        ).columns(
+          gs_tenant_app.tenant_id,
+          gs_tenant_app.product_id,
+          gs_tenant_app.app_url
+        ).insert(
+          Parameter('%s'),
+          1,
+          Parameter('%s')
+        )
 
         gsdb.execute(str(qry), (tenant_id, api_url,))
 
       proxy_servers = config.get('proxy','servers', fallback='107.161.173.97')
       server_list = proxy_servers.split(";")
+
       for proxy_server in server_list:
         self.create_dns('api-' + slug + '.grubstack.app', proxy_server)
 
   def uninstall_api(self, tenant_id: str):
-    table = Table('gs_tenant')
-    qry = Query.from_(table).select('slug').where(table.tenant_id == tenant_id)
+    gs_tenant = Table('gs_tenant')
+    qry = Query.from_(
+      gs_tenant
+    ).select(
+      gs_tenant.slug
+    ).where(
+      gs_tenant.tenant_id == tenant_id
+    )
+
     row = coredb.fetchone(str(qry))
 
     if row:
@@ -208,8 +262,15 @@ class ProductService:
         pass
 
   def install_core(self, tenant_id: str):
-    table = Table('gs_tenant')
-    qry = Query.from_(table).select('slug').where(table.tenant_id == tenant_id)
+    gs_tenant = Table('gs_tenant')
+    qry = Query.from_(
+      gs_tenant
+    ).select(
+      gs_tenant.slug
+    ).where(
+      gs_tenant.tenant_id == tenant_id
+    )
+
     row = coredb.fetchone(str(qry))
 
     if row:
@@ -235,27 +296,33 @@ class ProductService:
       result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
       core_url = 'https://core-' + slug + '.grubstack.app'
       
-      table = Table('gs_tenant_app')
+      gs_tenant_app = Table('gs_tenant_app')
       qry = Query.from_(
-        table
+        gs_tenant_app
       ).select(
         '*'
       ).where(
-        table.tenant_id == tenant_id
+        gs_tenant_app.tenant_id == tenant_id
       ).where(
-        table.product_id == '2'
+        gs_tenant_app.product_id == '2'
       ).where(
-        table.app_url == core_url
+        gs_tenant_app.app_url == core_url
       )
+
       row = gsdb.fetchone(str(qry))
 
       if row == None:
-        table = Table('gs_tenant_app')
-        qry = Query.into(table).columns(
-          'tenant_id',
-          'product_id',
-          'app_url',
-        ).insert(Parameter('%s'), 2, Parameter('%s'))
+        qry = Query.into(
+          gs_tenant_app
+        ).columns(
+          gs_tenant_app.tenant_id,
+          gs_tenant_app.product_id,
+          gs_tenant_app.app_url,
+        ).insert(
+          Parameter('%s'),
+          2,
+          Parameter('%s')
+        )
 
         gsdb.execute(str(qry), (tenant_id, core_url,))
 
@@ -265,8 +332,15 @@ class ProductService:
         self.create_dns('core-' + slug + '.grubstack.app', proxy_server)
 
   def uninstall_core(self, tenant_id: str):
-    table = Table('gs_tenant')
-    qry = Query.from_(table).select('slug').where(table.tenant_id == tenant_id)
+    gs_tenant = Table('gs_tenant')
+    qry = Query.from_(
+      gs_tenant
+    ).select(
+      gs_tenant.slug
+    ).where(
+      gs_tenant.tenant_id == tenant_id
+    )
+
     row = coredb.fetchone(str(qry))
 
     if row:
@@ -278,8 +352,16 @@ class ProductService:
         pass
 
   def install_web(self, tenant_id: str):
-    table = Table('gs_tenant')
-    qry = Query.from_(table).select('slug', 'access_token').where(table.tenant_id == tenant_id)
+    gs_tenant = Table('gs_tenant')
+    qry = Query.from_(
+      gs_tenant
+    ).select(
+      gs_tenant.slug,
+      gs_tenant.access_token
+    ).where(
+      gs_tenant.tenant_id == tenant_id
+    )
+
     row = coredb.fetchone(str(qry))
 
     if row:
@@ -309,27 +391,33 @@ class ProductService:
       result = subprocess.Popen(f"ssh grubstack@vps.williamhuntjr.com {cmd}", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
       web_url = 'https://web-' + slug + '.grubstack.app'
       
-      table = Table('gs_tenant_app')
+      gs_tenant_app = Table('gs_tenant_app')
       qry = Query.from_(
-        table
+        gs_tenant_app
       ).select(
         '*'
       ).where(
-        table.tenant_id == tenant_id
+        gs_tenant_app.tenant_id == tenant_id
       ).where(
-        table.product_id == '3'
+        gs_tenant_app.product_id == '3'
       ).where(
-        table.app_url == web_url
+        gs_tenant_app.app_url == web_url
       )
       row = gsdb.fetchone(str(qry))
       
       if row == None:
-        table = Table('gs_tenant_app')
-        qry = Query.into(table).columns(
-          'tenant_id',
-          'product_id',
-          'app_url',
-        ).insert(Parameter('%s'), 3, Parameter('%s'))
+        qry = Query.into(
+          gs_tenant_app
+        ).columns(
+          gs_tenant_app.tenant_id,
+          gs_tenant_app.product_id,
+          gs_tenant_app.app_url,
+        ).insert(
+          Parameter('%s'),
+          3,
+          Parameter('%s')
+        )
+
         gsdb.execute(str(qry), (tenant_id, web_url,))
 
       proxy_servers = config.get('proxy','servers', fallback='107.161.173.97')
@@ -338,8 +426,15 @@ class ProductService:
         self.create_dns('web-' + slug + '.grubstack.app', proxy_server)
 
   def uninstall_web(self, tenant_id: str):
-    table = Table('gs_tenant')
-    qry = Query.from_(table).select('slug').where(table.tenant_id == tenant_id)
+    gs_tenant = Table('gs_tenant')
+    qry = Query.from_(
+      gs_tenant
+    ).select(
+      gs_tenant.slug
+    ).where(
+      gs_tenant.tenant_id == tenant_id
+    )
+    
     row = coredb.fetchone(str(qry))
 
     if row:

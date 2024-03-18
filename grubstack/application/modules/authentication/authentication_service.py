@@ -46,16 +46,16 @@ class AuthenticationService:
 
     try:
       qry = Query.into(gs_user).columns(
-        'username',
-        'password',
-        'create_time',
-        'first_name',
-        'last_name',
-        'is_subscribed',
-        'address1',
-        'city',
-        'state',
-        'zip_code'
+        gs_user.username,
+        gs_user.password,
+        gs_user.create_time,
+        gs_user.first_name,
+        gs_user.last_name,
+        gs_user.is_subscribed,
+        gs_user.address1,
+        gs_user.city,
+        gs_user.state,
+        gs_user.zip_code
       ).insert(
         Parameter('%s'),
         password_hash,
@@ -191,13 +191,13 @@ class AuthenticationService:
     gs_jwt = Table('gs_jwt')
 
     qry = Query.into(gs_jwt).columns(
-      'jwt_jti',
-      'jwt_token_type',
-      'jwt_token',
-      'jwt_user_identity',
-      'jwt_revoked',
-      'jwt_expires',
-      'jwt_username'
+      gs_jwt.jwt_jti,
+      gs_jwt.jwt_token_type,
+      gs_jwt.jwt_token,
+      gs_jwt.jwt_user_identity,
+      gs_jwt.jwt_revoked,
+      gs_jwt.jwt_expires,
+      gs_jwt.jwt_username
     ).insert(
       jti,
       token_type,
@@ -236,7 +236,12 @@ class AuthenticationService:
   def invalidate_tokens(self, username: str) -> None:
     gs_jwt = Table('gs_jwt')
     
-    qry = Query.from_(gs_jwt).delete().where(gs_jwt.jwt_username == username.lower())
+    qry = Query.from_(
+      gs_jwt
+    ).delete().where(
+      gs_jwt.jwt_username == username.lower()
+    )
+
     gsdb.execute(str(qry))
 
   def get_tokens(self, user_identity: str):
@@ -262,34 +267,65 @@ class AuthenticationService:
   def get_tenant_id(self):
     current_user = get_current_user()
     if  current_user:
-      table = Table('gs_user_tenant')
-      qry = Query.from_(table).select('tenant_id').where(table.user_id == current_user.id).where(table.is_owner == 't')
+      gs_user_tenant = Table('gs_user_tenant')
+      qry = Query.from_(
+        gs_user_tenant
+      ).select(
+        gs_user_tenant.tenant_id
+      ).where(
+        gs_user_tenant.user_id == current_user.id
+      ).where(
+        gs_user_tenant.is_owner == 't'
+      )
+
       row = gsdb.fetchone(str(qry))
 
       if row:
         return row['tenant_id']
+
       else:
         slug = generate_hash()
         access_token = generate_hash()
 
-        table = Table('gs_tenant')
-        qry = Query.into(table).columns(
-          'is_suspended',
-          'is_active',
-          'slug',
-          'access_token'
-        ).insert('f', 't', Parameter('%s'), Parameter('%s'))
+        gs_tenant = Table('gs_tenant')
+        qry = Query.into(
+          gs_tenant
+        ).columns(
+          gs_tenant.is_suspended,
+          gs_tenant.is_active,
+          gs_tenant.slug,
+          gs_tenant.access_token
+        ).insert(
+          'f',
+          't',
+          Parameter('%s'),
+          Parameter('%s')
+        )
+
         coredb.execute(str(qry), (slug, access_token,))
 
-        qry = Query.from_(table).select('tenant_id').where(table.slug == slug)
+        qry = Query.from_(
+          gs_tenant
+        ).select(
+          gs_tenant.tenant_id
+        ).where(
+          gs_tenant.slug == slug
+        )
+
         row = coredb.fetchone(str(qry))
 
-        table = Table('gs_user_tenant')
-        qry = Query.into(table).columns(
-          'user_id',
-          'tenant_id',
-          'is_owner',
-        ).insert(Parameter('%s'), Parameter('%s'), 't')
+        gs_user_tenant = Table('gs_user_tenant')
+        qry = Query.into(
+          gs_user_tenant
+        ).columns(
+          gs_user_tenant.user_id,
+          gs_user_tenant.tenant_id,
+          gs_user_tenant.is_owner
+        ).insert(
+          Parameter('%s'),
+          Parameter('%s'),
+          't'
+        )
         
         gsdb.execute(str(qry), (current_user.id, row['tenant_id'],))
 

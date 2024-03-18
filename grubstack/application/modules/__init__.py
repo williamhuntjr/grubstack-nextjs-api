@@ -1,2 +1,5 @@
 from . import authentication
-from . import dashboard
+from . import account
+from . import products
+from . import shared_access
+from . import subscriptions

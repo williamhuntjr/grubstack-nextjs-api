@@ -210,7 +210,7 @@ def refresh() -> Response:
     jwt = get_jwt()
     user = authentication_service.fetch_user(current_user)
     access_token = create_access_token(identity=user)
-    refresh_token = request.cookies.get('refresh_token_cookie') or request.headers['Authorization'].split(None, 1)[1].strip()
+    refresh_token = request.cookies.get('_grubstack_refresh_token') or request.headers['Authorization'].split(None, 1)[1].strip()
     decoded_access_token = decode_token(access_token)
     decoded_refresh_token = decode_token(refresh_token)
     authentication_service.add_token_to_database(access_token, app.config['JWT_IDENTITY_CLAIM'], user.username)
