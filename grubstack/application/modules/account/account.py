@@ -27,11 +27,13 @@ def get_account():
 
     if user_id != None:
       user_info = account_service.get_account(user_id)
-      return gs_make_response(data=user_info)
+      return gs_make_response(data=user_info,
+                              status=GStatusCode.SUCCESS,
+                              httpstatus=200)
 
     return gs_make_response(message='Unable to find account',
                             status=GStatusCode.ERROR,
-                            httpstatus=401)
+                            httpstatus=404)
 
   except Exception as e:
     logger.exception(e)
@@ -66,11 +68,13 @@ def update_account():
         is_subscribed,
         customer_info.stripe_customer_id
       )
-      return gs_make_response(data=user_info)
+      return gs_make_response(message='Account updated',
+                              status=GStatusCode.SUCCESS,
+                              httpstatus=200)
 
     return gs_make_response(message='Unable to find account',
                             status=GStatusCode.ERROR,
-                            httpstatus=401)
+                            httpstatus=404)
 
   except Exception as e:
     logger.exception(e)

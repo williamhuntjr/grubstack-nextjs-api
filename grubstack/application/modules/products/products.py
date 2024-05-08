@@ -44,7 +44,9 @@ def get_all():
 
         json_data.append(format_app(app, status))
 
-    return gs_make_response(data=json_data)
+    return gs_make_response(data=json_data,
+                            status=GStatusCode.SUCCESS,
+                            httpstatus=200)
 
   except Exception as e:
     logger.exception(e)
@@ -78,7 +80,9 @@ def get_shared_apps():
         
         json_data.append(format_app(app, status))
 
-    return gs_make_response(data=json_data)
+    return gs_make_response(data=json_data,
+                            status=GStatusCode.SUCCESS,
+                            httpstatus=200)
 
   except Exception as e:
     logger.exception(e)
@@ -91,17 +95,19 @@ def get_shared_apps():
 def restart_app():
   try:
     if request.json:
-      tenant_id = authentication_service.get_tenant_id()
-      tenant_slug = product_service.get_slug(tenant_id)
-
       data = json.loads(request.data)
-      params = data['params']
+      app_id = data['app_id'] or None
+      tenant_id = None
+      
+      if 'tenant_id' in data:
+        tenant_id = data['tenant_id']
 
-      app_id = params['app_id']
+      if tenant_id is None:
+        tenant_id = authentication_service.get_tenant_id()
 
+      tenant_slug = product_service.get_slug(tenant_id)
       if app_id:
         product_id = product_service.get_app_product_id(tenant_id, app_id)
-
         match product_id:
           case 1:
             product_service.uninstall_api(tenant_id)
@@ -113,13 +119,15 @@ def restart_app():
             product_service.uninstall_web(tenant_id)
             product_service.install_web(tenant_id)
 
-        return gs_make_response(message='App restarted successfully')
+        return gs_make_response(message='App restarted successfully',
+                                status=GStatusCode.SUCCESS,
+                                httpstatus=200)
 
-      return gs_make_response(message='Unable to restart app',
+      return gs_make_response(message='Invalid request syntax',
                         status=GStatusCode.ERROR,
-                        httpstatus=500)
+                        httpstatus=400)
     else:
-      return gs_make_response(message='Invalid data',
+      return gs_make_response(message='Invalid request syntax',
                               status=GStatusCode.ERROR,
                               httpstatus=400)
 
@@ -140,17 +148,15 @@ def init_all_apps():
     if has_initialized is True:
       return gs_make_response(message='You have already initialized your apps',
                         status=GStatusCode.ERROR,
-                        httpstatus=400)
+                        httpstatus=409)
     else:
       tenant_id = authentication_service.get_tenant_id()
       
       if tenant_id:
         product_service.init_apps(tenant_id)
-        return gs_make_response(message='GrubStack suite initialized')
-
-    return gs_make_response(message='Unable to init apps',
-                  status=GStatusCode.ERROR,
-                  httpstatus=500)
+        return gs_make_response(message='GrubStack suite initialized',
+                                status=GStatusCode.SUCCESS,
+                                httpstatus=201)
 
   except Exception as e:
     logger.exception(e)

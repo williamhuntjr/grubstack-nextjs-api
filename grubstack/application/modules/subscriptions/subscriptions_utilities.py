@@ -18,8 +18,7 @@ def format_subscription(data: dict, product_data: dict):
 
 def format_limits(limits_data: dict):
   limits = {
-    "franchise_count": limits_data['franchise_count'],
-    "store_count": limits_data['store_count'],
+    "location_count": limits_data['location_count'],
     "backup_frequency": limits_data['backup_frequency'],
     "tech_support_lvl": limits_data['tech_support_lvl'],
     "financial_report_lvl": limits_data['financial_report_lvl'],

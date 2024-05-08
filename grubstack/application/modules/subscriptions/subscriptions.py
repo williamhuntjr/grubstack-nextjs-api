@@ -39,7 +39,9 @@ def get_account_limits():
   try:
     tenant_id = authentication_service.get_tenant_id()
     limits = subscription_service.get_account_limits(tenant_id)
-    return gs_make_response(data=limits)
+    return gs_make_response(data=limits,
+                            status=GStatusCode.SUCCESS,
+                            httpstatus=200)
 
   except Exception as e:
     logger.exception(e)
@@ -52,7 +54,9 @@ def get_account_limits():
 def get_subscription(subscription_id: str):
   try:
     subscription = subscription_service.get(subscription_id)
-    return gs_make_response(data=subscription)
+    return gs_make_response(data=subscription,
+                            status=GStatusCode.SUCCESS,
+                            httpstatus=200)
 
   except Exception as e:
     logger.exception(e)
@@ -67,7 +71,9 @@ def get_upcoming_payment(subscription_id: str):
     user = get_current_user()
     payment = subscription_service.upcoming_payment(user.stripe_customer_id, subscription_id)
 
-    return gs_make_response(data=payment)
+    return gs_make_response(data=payment,
+                            status=GStatusCode.SUCCESS,
+                            httpstatus=200)
 
   except Exception as e:
     logger.exception(e)
@@ -79,7 +85,9 @@ def get_upcoming_payment(subscription_id: str):
 def get_product(product_id: str):
   try:
     product = subscription_service.get_product(product_id)
-    return gs_make_response(data=product)
+    return gs_make_response(data=product,
+                            status=GStatusCode.SUCCESS,
+                            httpstatus=200)
 
   except Exception as e:
     logger.exception(e)
@@ -112,7 +120,9 @@ def user_subscriptions_index():
       for subscription in subscriptions:
         json_data.append(format_subscription(subscription, subscription_service.get_product(subscription['plan']['product'])))
 
-    return gs_make_response(data=json_data, totalrowcount=len(json_data))
+    return gs_make_response(data=json_data,
+                            status=GStatusCode.SUCCESS,
+                            httpstatus=200)
 
   except Exception as e:
     logger.exception(e)
@@ -120,7 +130,7 @@ def user_subscriptions_index():
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
-@subscriptions.route('/subscriptions/create', methods=['POST'])
+@subscriptions.route('/subscriptions', methods=['POST'])
 @jwt_required()
 def create_subscription():
   try:
@@ -132,7 +142,7 @@ def create_subscription():
 
       customer_id = data['customer_id']
       price_id = data['price_id']
-
+      
       subscription = subscription_service.create_subscription(tenant_id, customer_id, price_id)
 
       if subscription.pending_setup_intent is not None:
@@ -146,10 +156,12 @@ def create_subscription():
           'clientSecret': subscription.latest_invoice.payment_intent.client_secret
         }
 
-      return gs_make_response(data=json_data)
+      return gs_make_response(data=json_data,
+                              status=GStatusCode.SUCCESS,
+                              httpstatus=201)
 
     else:
-      return gs_make_response(message='Invalid data',
+      return gs_make_response(message='Invalid request syntax',
                               status=GStatusCode.ERROR,
                               httpstatus=400)
 
@@ -172,7 +184,8 @@ def delete_subscription(subscription_id: str):
                         httpstatus=403)
     else:
       subscription_service.cancel_subscription(subscription_id)
-      return gs_make_response(status=GStatusCode.SUCCESS,
+      return gs_make_response(message='Subscription deleted',
+                              status=GStatusCode.SUCCESS,
                               httpstatus=200)
 
   except Exception as e:
@@ -191,10 +204,11 @@ def update_subscription(subscription_id: str):
       if 'cancel_at_period_end' in data:
         stripe.Subscription.modify(subscription_id, cancel_at_period_end=data['cancel_at_period_end'])
 
-      return gs_make_response(status=GStatusCode.SUCCESS,
+      return gs_make_response(message='Subscription updated successfully',
+                              status=GStatusCode.SUCCESS,
                               httpstatus=200)
     else:
-      return gs_make_response(message='Invalid data',
+      return gs_make_response(message='Invalid request syntax',
                         status=GStatusCode.ERROR,
                         httpstatus=400)
   except Exception as e:

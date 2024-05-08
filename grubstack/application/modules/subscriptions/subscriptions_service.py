@@ -72,8 +72,7 @@ class SubscriptionService:
       qry = Query.from_(
         gs_tenant_feature
       ).select(
-        gs_tenant_feature.franchise_count,
-        gs_tenant_feature.store_count,
+        gs_tenant_feature.location_count,
         gs_tenant_feature.financial_report_lvl,
         gs_tenant_feature.backup_frequency,
         gs_tenant_feature.tech_support_lvl,
@@ -83,7 +82,7 @@ class SubscriptionService:
       )
 
       limits = gsdb.fetchone(str(qry))
-
+      
       if limits:
         return format_limits(limits)
       else:
@@ -96,8 +95,7 @@ class SubscriptionService:
       subscriptions = self.index(customer_id)
 
       if len(subscriptions) > 0:
-        franchise_count = 0
-        store_count = 0
+        location_count = 0
         financial_report_lvl = 0
         tech_support_lvl = 0
         is_shareable = False
@@ -110,8 +108,7 @@ class SubscriptionService:
               qry = Query.from_(
                 gs_subscription
               ).select(
-                gs_subscription.franchise_count,
-                gs_subscription.store_count,
+                gs_subscription.location_count,
                 gs_subscription.financial_report_lvl,
                 gs_subscription.backup_frequency,
                 gs_subscription.tech_support_lvl,
@@ -121,21 +118,18 @@ class SubscriptionService:
               )
 
               limits = gsdb.fetchone(str(qry))
-                
-              franchise_count += limits['franchise_count']
-              store_count += limits['store_count']
-              
-              if limits['franchise_count'] == -1:
-                franchise_count = -1
 
-              if limits['store_count'] == -1:
-                store_count = -1
+              if limits['location_count'] != -1 and location_count != -1:
+                location_count += limits['location_count']
+
+              if limits['location_count'] == -1:
+                location_count = -1
 
               if limits['financial_report_lvl'] > financial_report_lvl:
                 financial_report_lvl = limits['financial_report_lvl']
 
               if limits['tech_support_lvl'] > tech_support_lvl:
-                financial_report_lvl = limits['tech_support_lvl']
+                tech_support_lvl = limits['tech_support_lvl']
 
               if limits['is_shareable'] == True:
                 is_shareable = True
@@ -159,9 +153,7 @@ class SubscriptionService:
 
         if row != None:
           qry = Query.update(gs_tenant_feature).set(
-              gs_tenant_feature.franchise_count, franchise_count
-            ).set(
-              gs_tenant_feature.store_count, store_count
+              gs_tenant_feature.location_count, location_count
             ).set(
               gs_tenant_feature.financial_report_lvl, financial_report_lvl
             ).set(
@@ -178,8 +170,7 @@ class SubscriptionService:
             gs_tenant_feature
           ).insert(
             tenant_id,
-            franchise_count,
-            store_count,
+            location_count,
             backup_frequency,
             is_shareable,
             tech_support_lvl,

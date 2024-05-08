@@ -28,7 +28,9 @@ def get_trusted_users():
 
     json_data = shared_access_service.get_all(tenant_id)
 
-    return gs_make_response(data=json_data)
+    return gs_make_response(data=json_data,
+                            status=GStatusCode.SUCCESS,
+                            httpstatus=200)
 
   except Exception as e:
     logger.exception(e)
@@ -43,11 +45,13 @@ def delete_trusted_user(user_id: str):
     tenant_id = authentication_service.get_tenant_id()
     shared_access_service.delete(user_id, tenant_id)
 
-    return gs_make_response(message='Trusted user deleted')
+    return gs_make_response(message='Trusted user deleted',
+                            status=GStatusCode.SUCCESS,
+                            httpstatus=200)
 
   except Exception as e:
     logger.exception(e)
-    return gs_make_response(message='Unable to retrieve trusted users',
+    return gs_make_response(message='Unable to retrieve specified trusted user',
                             status=GStatusCode.ERROR,
                             httpstatus=500)
 
@@ -66,24 +70,26 @@ def create_trusted_user():
       if user == None:
         return gs_make_response(message='The specified user does not exist',
                       status=GStatusCode.ERROR,
-                      httpstatus=400)
+                      httpstatus=404)
+
       if user[0] == get_jwt_identity():
         return gs_make_response(message='You cannot add yourself as you are the owner',
-          status=GStatusCode.ERROR,
-          httpstatus=400)
+                                status=GStatusCode.ERROR,
+                                httpstatus=400)
 
       trusted_user_exists = shared_access_service.get(tenant_id, user[0])
       if trusted_user_exists != None:
         return gs_make_response(message='That trusted user already exists',
                   status=GStatusCode.ERROR,
-                  httpstatus=400)
+                  httpstatus=409)
 
       shared_access_service.create(tenant_id, user[0], permissions)
       return gs_make_response(message='Trusted user created',
-                                status=GStatusCode.SUCCESS)
+                              status=GStatusCode.SUCCESS,
+                              httpstatus=201)
   
     else:
-      return gs_make_response(message='Invalid request',
+      return gs_make_response(message='Invalid request syntax',
                             status=GStatusCode.ERROR,
                             httpstatus=400)
   except Exception as e:
@@ -109,24 +115,25 @@ def update_trusted_user():
                       status=GStatusCode.ERROR,
                       httpstatus=400)
       if user[0] == get_jwt_identity():
-        return gs_make_response(message='You cannot update yourself as you are the owner',
-          status=GStatusCode.ERROR,
-          httpstatus=400)
+        return gs_make_response(message='You cannot update your status as you are the owner',
+                                status=GStatusCode.ERROR,
+                                httpstatus=400)
 
       trusted_user_exists = shared_access_service.get(tenant_id, user[0])
       if trusted_user_exists != None:
         shared_access_service.update(tenant_id, user[0], permissions)
         return gs_make_response(message='The trusted user has been updated',
-                  status=GStatusCode.SUCCESS,
-                  httpstatus=201)
+                                status=GStatusCode.SUCCESS,
+                                httpstatus=200)
 
       return gs_make_response(message='That trusted user does not exist on this tenant',
-                                status=GStatusCode.SUCCESS)
+                              status=GStatusCode.SUCCESS)
   
     else:
-      return gs_make_response(message='Invalid request',
-                            status=GStatusCode.ERROR,
-                            httpstatus=400)
+      return gs_make_response(message='Invalid request syntax',
+                              status=GStatusCode.ERROR,
+                              httpstatus=400)
+
   except Exception as e:
     logger.exception(e)
     return gs_make_response(message='Unable to create trusted user',
@@ -139,7 +146,9 @@ def get_permissions():
   try:
     json_data = shared_access_service.get_all_permissions()
 
-    return gs_make_response(data=json_data)
+    return gs_make_response(data=json_data,
+                            status=GStatusCode.SUCCESS,
+                            httpstatus=200)
 
   except Exception as e:
     logger.exception(e)

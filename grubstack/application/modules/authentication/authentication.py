@@ -155,10 +155,18 @@ def register() -> Response:
             state,
             zip_code
           )
-          
+
           if user is not None:
-            return gs_make_response(message='The account was created successfully', 
-                                    httpstatus=200)
+            user = authentication_service.validate_user(username.lower(), password)
+            token = authentication_service.get_user_token(user)
+
+            response = gs_make_response(message='The account was created successfully', 
+                                    httpstatus=201)
+
+            set_access_cookies(response, token['access_token'])
+            set_refresh_cookies(response, token['refresh_token'])
+
+            return response
           else:
             return gs_make_response(message='The account could not be created',
                                     status=GStatusCode.ERROR,
@@ -179,16 +187,20 @@ def login() -> Response:
       username = request.json.get('username', None)
       password = request.json.get('password', None)
 
-      user = authentication_service.validate_user(username, password)
+      user = authentication_service.validate_user(username.lower(), password)
 
       if user is None:
-        return gs_make_response(message='Invalid username / password',
+        return gs_make_response(message='Invalid username or password',
                                 status=GStatusCode.ERROR,
                                 httpstatus=401)
 
       token = authentication_service.get_user_token(user)
       
-      response = make_response(jsonify({ 'data': token }))
+      response = gs_make_response(data=token,
+                                  message='Authentication successful',
+                                  status=GStatusCode.SUCCESS,
+                                  httpstatus=200)
+
       set_access_cookies(response, token['access_token'])
       set_refresh_cookies(response, token['refresh_token'])
       return response
@@ -228,10 +240,14 @@ def refresh() -> Response:
       'refresh_token_expires_in': decoded_refresh_token['exp'] - time.time(),
       'refresh_token_jti': decoded_refresh_token['jti']
     }
-    response = make_response(jsonify({ "data": token }))
+
+    response = gs_make_response(message='Token refresh successful',
+                                data=token,
+                                status=GStatusCode.SUCCESS,
+                                httpstatus=200)
     set_access_cookies(response, access_token)
     set_refresh_cookies(response, refresh_token)
-    return response, 201
+    return response
 
   except Exception as e:
     logger.exception(e)
