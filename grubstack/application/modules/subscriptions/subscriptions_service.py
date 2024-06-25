@@ -35,9 +35,10 @@ class SubscriptionService:
           json_data = {
             "id": price['id'],
             "name": product['name'],
-            "slug": price['lookup_key'] or '',
+            "nickname": price['nickname'],
+            "lookup_key": price['lookup_key'] or '',
             "price": price['unit_amount'],
-            "product": price['product']
+            "product": price['product'],
           }
           products_list.append(json_data)
     return products_list

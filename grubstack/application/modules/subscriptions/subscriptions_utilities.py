@@ -2,6 +2,7 @@ def format_subscription(data: dict, product_data: dict):
   subscription = {
     "id": data['id'],
     "name": product_data['name'],
+    "nickname": data['plan']['nickname'],
     "product_id": data['plan']['product'],
     "start_date": data['start_date'],
     "status": data['status'],
